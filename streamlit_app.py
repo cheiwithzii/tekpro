@@ -13,22 +13,6 @@ if "user_id" not in st.session_state:
 # Optional: tampilkan session di dashboard
 st.write(f"Session User ID: {st.session_state.user_id}")
 
-# -----------------------------
-# Background gambar / styling
-# -----------------------------
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e");
-        background-size: cover;
-        background-attachment: fixed;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 # ============================
 # 1. Konfigurasi & Fungsi Utils
 # ============================
@@ -345,3 +329,19 @@ st.markdown("""
 
 </style>
 """, unsafe_allow_html=True)
+
+# -----------------------------
+# Background gambar / styling
+# -----------------------------
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e");
+        background-size: cover;
+        background-attachment: fixed;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
