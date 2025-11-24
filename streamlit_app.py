@@ -2,6 +2,41 @@ import streamlit as st
 import pandas as pd
 import os
 
+import uuid  # jika belum diimport
+
+# -----------------------------
+# Session unik per user
+# -----------------------------
+if "user_id" not in st.session_state:
+    st.session_state.user_id = str(uuid.uuid4())
+
+# Optional: tampilkan session di dashboard
+st.write(f"Session User ID: {st.session_state.user_id}")
+
+# -----------------------------
+# Background gambar / styling
+# -----------------------------
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e");
+        background-size: cover;
+        background-attachment: fixed;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# -----------------------------
+# Metrics Card (opsional)
+# -----------------------------
+col1, col2, col3 = st.columns(3)
+col1.metric("Pemasukan", "Rp 1.500.000")
+col2.metric("Pengeluaran", "Rp 900.000")
+col3.metric("Saldo", "Rp 600.000")
+
 # ============================
 # 1. Konfigurasi & Fungsi Utils
 # ============================
