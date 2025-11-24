@@ -325,3 +325,7 @@ st.markdown("""
 .stSelectbox > div > div > select,
 [data-baseweb="textarea"] > textarea {
     background-color: #fff1f6 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
