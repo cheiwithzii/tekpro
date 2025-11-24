@@ -1,236 +1,210 @@
-# streamlit_app.py
-# Versi defensif: aman terhadap error import di baris awal (line 3 dll).
-import sys
+import streamlit as st
+import pandas as pd
+import os
 
-# 1) Pastikan streamlit terpasang — jika tidak, kita harus berhenti karena tidak ada UI.
-try:
-    import streamlit as st
-except Exception as e:
-    raise RuntimeError(
-        "Streamlit tidak ditemukan di environment ini. "
-        "Pasang dulu dengan: pip install streamlit\n\n"
-        f"Detail error: {e}"
-    ) from e
+# ============================
+# 1. Konfigurasi & Fungsi Utils
+# ============================
 
-# 2) Import library lain secara aman — jika gagal, tampilkan pesan di UI (jangan crash).
-missing_packages = []
-try:
-    import pandas as pd
-except Exception as e:
-    pd = None
-    missing_packages.append(("pandas", e))
+CSV_FILE = "transactions.csv"
 
-try:
-    import matplotlib.pyplot as plt
-except Exception as e:
-    plt = None
-    missing_packages.append(("matplotlib", e))
-
-from datetime import datetime
-
-# --- Jika ada paket yang hilang, tampilkan instruksi yang jelas di UI dan non-aktifkan fitur yang butuh paket itu ---
-st.set_page_config(page_title="Aplikasi Keuangan (Aman)", layout="wide")
-st.title("📊 Aplikasi Pengelola Keuangan — Versi Aman (Error-safe)")
-
-if missing_packages:
-    st.error("Beberapa paket Python yang diperlukan belum terpasang.")
-    for pkg, err in missing_packages:
-        st.write(f"- **{pkg}**: `{err}`")
-    st.info("Pasang paket yang hilang, lalu reload aplikasi. Contoh:")
-    st.code("pip install pandas matplotlib", language="bash")
-    # Tampilkan menu minimal agar pengguna tetap bisa melihat antarmuka
-    st.stop()
-
-# --- Setelah semua import OK, lanjutkan aplikasi normal ---
-st.success("Semua paket yang diperlukan tersedia. Aplikasi berjalan normal.")
-
-# ---------- Utility functions ----------
-def safe_read_file(uploaded):
-    """Baca CSV atau Excel dengan penanganan error."""
-    try:
-        if uploaded.name.lower().endswith(".csv"):
-            df = pd.read_csv(uploaded)
-        else:
-            df = pd.read_excel(uploaded)
+def load_transactions():
+    if os.path.exists(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce")
+        df["Jumlah"] = pd.to_numeric(df["Jumlah"], errors="coerce")
         return df
-    except Exception as e:
-        st.error(f"Gagal membaca file: {e}")
-        return None
-
-def ensure_columns(df, required):
-    missing = [c for c in required if c not in df.columns]
-    return missing
-
-# ---------- UI utama ----------
-st.markdown("**Upload file CSV/Excel yang berisi kolom minimal:** `Tanggal`, `Jenis` (Pengeluaran/Pemasukan), `Kategori` (opsional), `Jumlah`")
-
-uploaded = st.file_uploader("Upload file CSV/Excel (contoh kolom: Tanggal, Jenis, Kategori, Jumlah)", type=["csv", "xlsx"])
-
-# Sedia dataframe kosong agar menu selalu muncul
-df = pd.DataFrame(columns=["Tanggal", "Jenis", "Kategori", "Jumlah"])
-
-if uploaded:
-    df_read = safe_read_file(uploaded)
-    if df_read is not None:
-        # Normalisasi nama kolom (mengizinkan variasi huruf besar/kecil)
-        df_read.columns = [c.strip() for c in df_read.columns]
-        # Try several common column name variants
-        mapping = {}
-        cols_low = [c.lower() for c in df_read.columns]
-        if "tanggal" in cols_low:
-            mapping[df_read.columns[cols_low.index("tanggal")]] = "Tanggal"
-        if "date" in cols_low:
-            mapping[df_read.columns[cols_low.index("date")]] = "Tanggal"
-        if "jenis" in cols_low:
-            mapping[df_read.columns[cols_low.index("jenis")]] = "Jenis"
-        if "type" in cols_low:
-            mapping[df_read.columns[cols_low.index("type")]] = "Jenis"
-        if "kategori" in cols_low:
-            mapping[df_read.columns[cols_low.index("kategori")]] = "Kategori"
-        if "category" in cols_low:
-            mapping[df_read.columns[cols_low.index("category")]] = "Kategori"
-        if "jumlah" in cols_low:
-            mapping[df_read.columns[cols_low.index("jumlah")]] = "Jumlah"
-        if "amount" in cols_low:
-            mapping[df_read.columns[cols_low.index("amount")]] = "Jumlah"
-
-        df_read = df_read.rename(columns=mapping)
-        df = df_read.copy()
-
-        required = ["Tanggal", "Jenis", "Jumlah"]
-        missing = ensure_columns(df, required)
-        if missing:
-            st.error(f"File harus mengandung kolom: {', '.join(required)}. Kolom yang hilang: {', '.join(missing)}")
-            st.stop()
-
-        # Konversi tipe
-        try:
-            df["Tanggal"] = pd.to_datetime(df["Tanggal"])
-        except Exception as e:
-            st.error(f"Gagal konversi kolom Tanggal: {e}")
-            st.stop()
-
-        try:
-            df["Jumlah"] = pd.to_numeric(df["Jumlah"], errors="coerce")
-        except Exception as e:
-            st.error(f"Gagal konversi kolom Jumlah: {e}")
-            st.stop()
-
-        st.success("File berhasil dimuat.")
-        st.dataframe(df.head(50))
-
-# ---------- Menu selalu muncul ----------
-st.sidebar.header("Menu")
-menu = st.sidebar.radio("Pilih aksi:", [
-    "Lihat Data",
-    "Tambah Transaksi",
-    "Hapus Transaksi",
-    "Analisis Terpisah",
-    "Download CSV"
-])
-
-# Jika belum ada data (user belum upload) — banyak fitur non-aktifkan.
-has_data = not df.empty and "Tanggal" in df.columns and "Jumlah" in df.columns and "Jenis" in df.columns
-
-# ---------- 1. Lihat Data ----------
-if menu == "Lihat Data":
-    st.header("📄 Tabel Data")
-    if has_data:
-        st.dataframe(df)
     else:
-        st.info("Belum ada data. Upload file CSV/Excel untuk melihat data.")
+        return pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"])
 
-# ---------- 2. Tambah Transaksi ----------
-elif menu == "Tambah Transaksi":
-    st.header("➕ Tambah Transaksi Manual")
-    tgl = st.date_input("Tanggal")
-    jenis = st.selectbox("Jenis", ["Pengeluaran", "Pemasukan"])
-    kategori = st.text_input("Kategori (opsional)")
-    jumlah = st.number_input("Jumlah (Rp)", min_value=0.0, step=1000.0)
+def save_transactions(df):
+    df.to_csv(CSV_FILE, index=False)
 
-    if st.button("Tambahkan"):
-        row = {"Tanggal": pd.to_datetime(tgl), "Jenis": jenis, "Kategori": kategori, "Jumlah": jumlah}
-        df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-        st.success("Transaksi ditambahkan.")
-        st.dataframe(df.tail(10))
+def add_transaction(date, description, amount, category, ttype):
+    df = load_transactions()
 
-# ---------- 3. Hapus Transaksi ----------
-elif menu == "Hapus Transaksi":
-    st.header("🗑 Hapus Transaksi")
-    if not has_data:
-        st.info("Belum ada data untuk dihapus.")
+    # Penyesuaian tanda nilai
+    if ttype == "Pengeluaran":
+        amount = -abs(amount)
     else:
-        st.write("Tabel (reset index ditampilkan untuk memilih index):")
-        st.dataframe(df.reset_index())
-        idx = st.number_input("Masukkan index baris yang ingin dihapus", min_value=0, max_value=len(df)-1, step=1)
-        if st.button("Hapus index"):
-            df = df.drop(df.index[int(idx)]).reset_index(drop=True)
-            st.success(f"Baris index {idx} dihapus.")
-            st.dataframe(df.head(20))
+        amount = abs(amount)
 
-# ---------- 4. Analisis Terpisah ----------
-elif menu == "Analisis Terpisah":
-    st.header("📊 Analisis Terpisah")
-    if not has_data:
-        st.info("Upload data dulu untuk melihat analisis.")
-    else:
-        # Total pemasukan & pengeluaran
-        pemasukan = df[df["Jenis"].str.lower() == "pemasukan"]["Jumlah"].sum()
-        pengeluaran = df[df["Jenis"].str.lower() == "pengeluaran"]["Jumlah"].sum()
-        saldo = pemasukan - pengeluaran
+    new_row = {
+        "Tanggal": date,
+        "Deskripsi": description,
+        "Jumlah": amount,
+        "Kategori": category,
+        "Type": ttype
+    }
 
-        st.subheader("Ringkasan Keuangan")
-        st.write(f"- Total Pemasukan: Rp {pemasukan:,.0f}")
-        st.write(f"- Total Pengeluaran: Rp {pengeluaran:,.0f}")
-        st.write(f"- Saldo (Pemasukan - Pengeluaran): Rp {saldo:,.0f}")
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    save_transactions(df)
 
-        # Rata-rata harian dan bulanan (pengeluaran)
-        pengeluaran_df = df[df["Jenis"].str.lower() == "pengeluaran"].copy()
-        pengeluaran_df["Hari"] = pengeluaran_df["Tanggal"].dt.date
-        daily_avg = pengeluaran_df.groupby("Hari")["Jumlah"].sum().mean()
-        monthly_sum = pengeluaran_df.groupby(df["Tanggal"].dt.to_period("M"))["Jumlah"].sum()
-        monthly_avg = monthly_sum.mean()
+# ============================
+# 2. Tampilan Streamlit
+# ============================
 
-        st.subheader("Rata-rata")
-        st.write(f"- Rata-rata pengeluaran per hari: Rp {daily_avg:,.0f}")
-        st.write(f"- Rata-rata pengeluaran per bulan: Rp {monthly_avg:,.0f}")
+st.title("📘 Aplikasi Pelacak Keuangan Anak Kos")
+st.write("Kelola pemasukan dan pengeluaran harian menggunakan database CSV.")
 
-        # Distribusi per kategori
-        if "Kategori" in df.columns:
-            st.subheader("Distribusi per Kategori")
-            cat_sum = pengeluaran_df.groupby("Kategori")["Jumlah"].sum().sort_values(ascending=False)
-            st.dataframe(cat_sum)
-            # Bar chart
-            fig_cat, ax_cat = plt.subplots()
-            ax_cat.bar(cat_sum.index.astype(str), cat_sum.values)
-            ax_cat.set_title("Pengeluaran per Kategori")
-            ax_cat.set_ylabel("Jumlah (Rp)")
-            ax_cat.set_xticklabels(cat_sum.index.astype(str), rotation=45, ha="right")
-            st.pyplot(fig_cat)
+menu = st.sidebar.selectbox(
+    "Menu",
+    ["Tambah Transaksi", "Lihat Transaksi", "Ringkasan", "Grafik", "Upload CSV", "Perbaikan Data"]
+)
 
-        # Tren bulanan (line)
-        st.subheader("Tren Pengeluaran Bulanan")
-        fig_line, ax_line = plt.subplots()
-        ms = monthly_sum.sort_index()
-        ax_line.plot([str(x) for x in ms.index.astype(str)], ms.values, marker="o")
-        ax_line.set_title("Total Pengeluaran per Bulan")
-        ax_line.set_xlabel("Bulan")
-        ax_line.set_ylabel("Jumlah (Rp)")
-        plt.xticks(rotation=45)
-        st.pyplot(fig_line)
+# ============================
+# Menu 1: Tambah Transaksi
+# ============================
+if menu == "Tambah Transaksi":
+    st.subheader("➕ Tambah Transaksi")
 
-        # Pie chart distribusi bulanan (safe)
-        st.subheader("Pie Chart Distribusi Bulanan")
-        fig_pie, ax_pie = plt.subplots()
-        ax_pie.pie(ms.values, labels=ms.index.astype(str), autopct="%1.1f%%", startangle=90)
-        ax_pie.axis("equal")
-        st.pyplot(fig_pie)
+    ttype = st.selectbox("Jenis Transaksi", ["Pengeluaran", "Pemasukan"])
+    date = st.date_input("Tanggal")
+    description = st.text_input("Deskripsi")
+    amount = st.number_input("Jumlah (Rp)", min_value=0.0)
+    category = st.text_input("Kategori (contoh: Makanan, Transport)")
 
-# ---------- 5. Download CSV ----------
-elif menu == "Download CSV":
-    st.header("💾 Download Data")
+    if st.button("Simpan Transaksi"):
+        add_transaction(date, description, amount, category, ttype)
+        st.success("Transaksi berhasil ditambahkan!")
+
+# ============================
+# Menu 2: Lihat Transaksi
+# ============================
+elif menu == "Lihat Transaksi":
+    st.subheader("📃 Daftar Transaksi")
+    df = load_transactions()
+
     if df.empty:
-        st.info("Belum ada data untuk didownload.")
+        st.warning("Belum ada transaksi.")
     else:
-        csv_bytes = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download CSV hasil", csv_bytes, "transactions_updated.csv", "text/csv")
+        st.dataframe(df.sort_values("Tanggal", ascending=False))
+
+# ============================
+# Menu 3: Ringkasan
+# ============================
+elif menu == "Ringkasan":
+    st.subheader("📊 Ringkasan Keuangan")
+    df = load_transactions()
+
+    if df.empty:
+        st.warning("Belum ada data untuk diringkas.")
+    else:
+        total_income = df[df["Type"] == "Pemasukan"]["Jumlah"].sum()
+        total_expense = abs(df[df["Type"] == "Pengeluaran"]["Jumlah"].sum())
+        balance = total_income - total_expense
+
+        st.write(f"**Total Pemasukan:** Rp {total_income:,.0f}")
+        st.write(f"**Total Pengeluaran:** Rp {total_expense:,.0f}")
+        st.write(f"**Saldo Akhir:** Rp {balance:,.0f}")
+
+        st.subheader("🔎 Pengeluaran berdasarkan kategori")
+        expense_summary = (
+            df[df["Type"] == "Pengeluaran"]
+            .groupby("Kategori")["Jumlah"]
+            .sum()
+            .abs()
+        )
+
+        st.dataframe(expense_summary)
+
+# ============================
+# Menu 4: Grafik
+# ============================
+elif menu == "Grafik":
+    st.subheader("📈 Grafik Keuangan")
+    df = load_transactions()
+
+    if df.empty:
+        st.warning("Belum ada data untuk divisualisasikan.")
+    else:
+        st.line_chart(df.groupby("Tanggal")["Jumlah"].sum())
+
+        expense_only = df[df["Type"] == "Pengeluaran"]
+        st.bar_chart(expense_only.groupby("Kategori")["Jumlah"].sum().abs())
+
+# ============================
+# Menu 5: Upload CSV
+# ============================
+elif menu == "Upload CSV":
+    st.subheader("📤 Upload File CSV untuk Ditambahkan ke Database")
+
+    uploaded = st.file_uploader("Pilih file CSV", type="csv")
+
+    if uploaded is not None:
+        new_df = pd.read_csv(uploaded)
+
+        try:
+            # Normalisasi kolom
+            required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
+            if not all(col in new_df.columns for col in required_cols):
+                st.error("Format CSV tidak sesuai. Pastikan kolom sesuai format database.")
+            else:
+                # Konversi tipe data
+                new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
+                new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
+
+                old_df = load_transactions()
+                combined_df = pd.concat([old_df, new_df], ignore_index=True)
+
+                save_transactions(combined_df)
+                st.success("CSV berhasil diupload dan digabungkan ke database!")
+                st.dataframe(new_df)
+
+        except Exception as e:
+            st.error(f"Terjadi kesalahan: {e}")
+
+# ============================
+# Menu 6: Perbaikan Data
+# ============================
+elif menu == "Perbaikan Data":
+    st.subheader("🛠️ Perbaikan Data Transaksi")
+
+    df = load_transactions()
+
+    if df.empty:
+        st.warning("Tidak ada data untuk diperbaiki.")
+    else:
+        st.write("🔍 Data saat ini:")
+        st.dataframe(df)
+
+        st.write("---")
+        st.write("### Hapus Baris Berdasarkan Index")
+
+        index_to_delete = st.number_input("Masukkan index baris yang ingin dihapus", min_value=0, max_value=len(df)-1)
+
+        if st.button("Hapus Baris"):
+            df = df.drop(index_to_delete).reset_index(drop=True)
+            save_transactions(df)
+            st.success(f"Baris dengan index {index_to_delete} berhasil dihapus!")
+            st.dataframe(df)
+
+        st.write("---")
+        st.write("### Hapus Data Berdasarkan Kategori")
+
+        kategori_list = df["Kategori"].unique()
+        kategori_select = st.selectbox("Pilih kategori untuk dihapus", kategori_list)
+
+        if st.button("Hapus Kategori Ini"):
+            df = df[df["Kategori"] != kategori_select]
+            save_transactions(df)
+            st.success(f"Kategori '{kategori_select}' berhasil dihapus!")
+            st.dataframe(df)
+
+        st.write("---")
+        st.write("### Hapus Transaksi dengan Nilai Tidak Masuk Akal (misalnya > 10 juta)")
+
+        if st.button("Bersihkan Nilai Tidak Wajar"):
+            before = len(df)
+            df = df[df["Jumlah"].abs() < 10_000_000]
+            removed = before - len(df)
+            save_transactions(df)
+            st.success(f"{removed} baris tidak wajar berhasil dibersihkan!")
+
+        st.write("---")
+        st.write("### Reset Database (opsional)")
+
+        if st.button("RESET SEMUA DATA ⚠️"):
+            save_transactions(pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]))
+            st.error("Semua data telah dihapus!")
+
