@@ -1,128 +1,103 @@
 import streamlit as st
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
 
-CSV_FILE = "transactions.csv"
+st.title("Aplikasi Manajemen & Visualisasi Pengeluaran")
 
-def load_transactions():
-    if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
-        df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce")
-        df["Jumlah"] = pd.to_numeric(df["Jumlah"], errors="coerce")
-        return df
-    else:
-        return pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"])
+st.write("""
+Aplikasi ini memungkinkan Anda mengelola data pengeluaran/pemasukan,
+menghapus data yang salah, serta menampilkan visualisasi pengeluaran bulanan.
+""")
 
-def save_transactions(df):
-    df.to_csv(CSV_FILE, index=False)
+# ---------------------------------------------------------
+# Upload File
+# ---------------------------------------------------------
+st.header("1. Upload Data Pengeluaran (CSV)")
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-def add_transaction(date, description, amount, category, ttype):
-    df = load_transactions()
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
 
-    # Penanda pemasukan/pengeluaran
-    if ttype == "Pengeluaran":
-        amount = -abs(amount)
-    else:
-        amount = abs(amount)
+    st.subheader("Data Awal")
+    st.dataframe(df)
 
-    new_row = {
-        "Tanggal": date,
-        "Deskripsi": description,
-        "Jumlah": amount,
-        "Kategori": category,
-        "Type": ttype
-    }
+    # Cek kolom wajib
+    required_cols = ["tanggal", "jumlah"]
+    for col in required_cols:
+        if col not in df.columns:
+            st.error(f"File harus memiliki kolom '{col}'")
+            st.stop()
 
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    save_transactions(df)
+    # Convert tanggal
+    df["tanggal"] = pd.to_datetime(df["tanggal"])
 
-st.title("📘 Aplikasi Manajemen Keuangan Anak Kos — Versi Lengkap")
-st.write("Aplikasi ini mengelola keuangan dengan database CSV dan mendukung upload data Excel/CSV.")
+    # ---------------------------------------------------------
+    # FITUR HAPUS DATA
+    # ---------------------------------------------------------
+    st.header("2. Kelola Data – Hapus Data yang Salah")
 
-menu = st.sidebar.selectbox(
-    "Menu",
-    ["Tambah Transaksi", "Upload File", "Lihat Transaksi", "Ringkasan", "Analisis Lanjutan", "Grafik"]
-)
+    opsi_hapus = st.selectbox(
+        "Pilih cara menghapus data:",
+        ["Pilih", "Hapus berdasarkan index", "Hapus berdasarkan tanggal", "Hapus berdasarkan kategori (jika ada)"]
+    )
 
-if menu == "Tambah Transaksi":
-    st.subheader("➕ Tambah Transaksi Manual")
+    if opsi_hapus == "Hapus berdasarkan index":
+        st.write("Index data:")
+        st.dataframe(df.reset_index())
 
-    ttype = st.selectbox("Jenis Transaksi", ["Pengeluaran", "Pemasukan"])
-    date = st.date_input("Tanggal")
-    description = st.text_input("Deskripsi")
-    amount = st.number_input("Jumlah (Rp)", min_value=0.0)
-    category = st.text_input("Kategori (contoh: Makanan, Transport)")
+        index_hapus = st.number_input("Masukkan index yang ingin dihapus:", min_value=0, max_value=len(df)-1, step=1)
+        if st.button("Hapus"):
+            df = df.drop(df.index[index_hapus]).reset_index(drop=True)
+            st.success(f"Data index {index_hapus} berhasil dihapus!")
+            st.dataframe(df)
 
-    if st.button("Simpan Transaksi"):
-        add_transaction(date, description, amount, category, ttype)
-        st.success("Transaksi berhasil ditambahkan!")
+    elif opsi_hapus == "Hapus berdasarkan tanggal":
+        unique_dates = df["tanggal"].dt.date.unique()
+        date_pick = st.selectbox("Pilih tanggal yang ingin dihapus:", unique_dates)
 
-elif menu == "Upload File":
-    st.subheader("📤 Upload File CSV atau Excel")
+        if st.button("Hapus tanggal"):
+            df = df[df["tanggal"].dt.date != date_pick].reset_index(drop=True)
+            st.success(f"Data tanggal {date_pick} berhasil dihapus!")
+            st.dataframe(df)
 
-    uploaded = st.file_uploader("Pilih file CSV/Excel", type=["csv", "xlsx"])
+    elif opsi_hapus == "Hapus berdasarkan kategori (jika ada)":
+        if "kategori" not in df.columns:
+            st.error("Kolom 'kategori' tidak ditemukan.")
+        else:
+            unique_cat = df["kategori"].unique()
+            cat_pick = st.selectbox("Pilih kategori yang ingin dihapus:", unique_cat)
 
-    if uploaded:
-        # Auto detect format
-        if uploaded.name.endswith(".csv"):
-            df_new = pd.read_csv(uploaded)
-        elif uploaded.name.endswith(".xlsx"):
-            df_new = pd.read_excel(uploaded)
+            if st.button("Hapus kategori"):
+                df = df[df["kategori"] != cat_pick].reset_index(drop=True)
+                st.success(f"Kategori '{cat_pick}' berhasil dihapus!")
+                st.dataframe(df)
 
-        # Standardisasi format
-        df_new["Tanggal"] = pd.to_datetime(df_new["Tanggal"])
-        df_new["Jumlah"] = pd.to_numeric(df_new["Jumlah"])
+    # ---------------------------------------------------------
+    # ANALISIS & VISUALISASI
+    # ---------------------------------------------------------
+    st.header("3. Analisis Pengeluaran Bulanan")
 
-        # Gabungkan dengan database utama
-        df_old = load_transactions()
-        df_all = pd.concat([df_old, df_new], ignore_index=True)
-        save_transactions(df_all)
+    df["bulan"] = df["tanggal"].dt.strftime("%Y-%m")
+    monthly_expense = df.groupby("bulan")["jumlah"].sum()
 
-        st.success("Data berhasil di-upload & digabung ke database!")
-        st.dataframe(df_all.tail())
+    st.subheader("Total Pengeluaran per Bulan")
+    st.dataframe(monthly_expense)
 
-elif menu == "Lihat Transaksi":
-    st.subheader("📃 Daftar Transaksi")
-    df = load_transactions()
+    # Rata-rata bulanan
+    rata_rata = monthly_expense.mean()
+    st.info(f"📌 **Rata-rata pengeluaran per bulan: Rp {rata_rata:,.0f}**")
 
-    if df.empty:
-        st.warning("Belum ada transaksi.")
-    else:
-        st.dataframe(df.sort_values("Tanggal", ascending=False))
+    # Pie chart
+    st.subheader("Distribusi Pengeluaran per Bulan (Pie Chart)")
+    fig, ax = plt.subplots()
+    ax.pie(
+        monthly_expense.values,
+        labels=monthly_expense.index,
+        autopct="%1.1f%%",
+        startangle=90
+    )
+    ax.set_title("Pie Chart Pengeluaran Bulanan")
+    st.pyplot(fig)
 
-elif menu == "Ringkasan":
-    st.subheader("📊 Ringkasan Keuangan")
-    df = load_transactions()
-
-    if df.empty:
-        st.warning("Belum ada data.")
-    else:
-        total_income = df[df["Type"] == "Pemasukan"]["Jumlah"].sum()
-        total_expense = abs(df[df["Type"] == "Pengeluaran"]["Jumlah"].sum())
-        balance = total_income - total_expense
-
-        st.metric("Total Pemasukan", f"Rp {total_income:,.0f}")
-        st.metric("Total Pengeluaran", f"Rp {total_expense:,.0f}")
-        st.metric("Saldo Akhir", f"Rp {balance:,.0f}")
-
-        st.subheader("🔎 Pengeluaran per kategori")
-        exp_by_cat = (
-            df[df["Type"] == "Pengeluaran"]
-            .groupby("Kategori")["Jumlah"]
-            .sum()
-            .abs()
-        )
-        st.dataframe(exp_by_cat)
-
-elif menu == "Grafik":
-    st.subheader("📊 Grafik Keuangan")
-    df = load_transactions()
-
-    if df.empty:
-        st.warning("Tidak ada data grafik.")
-    else:
-        st.write("### Grafik Tren Harian")
-        st.line_chart(df.groupby("Tanggal")["Jumlah"].sum())
-
-        st.write("### Grafik Pengeluaran Berdasarkan Kategori")
-        st.bar_chart(df[df["Type"] == "Pengeluaran"].groupby("Kategori")["Jumlah"].sum().abs())
+else:
+    st.info("Unggah file CSV untuk mulai.")
