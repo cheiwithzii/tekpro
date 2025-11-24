@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import os
 
 st.title("📊 Aplikasi Manajemen & Analisis Keuangan Harian/Mingguan/Bulanan")
 
