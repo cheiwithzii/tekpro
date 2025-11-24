@@ -1,137 +1,97 @@
+```python
 import pandas as pd
-import os
+import numpy as np
+import matplotlib.pyplot as plt
 
-# --- 1. Inisialisasi: Pengaturan Awal ---
-CSV_FILE = 'transactions.csv' # Changed from expenses.csv to transactions.csv
+# Create dummy data for 'transaksi_keuangan.csv'
+data = {
+    'Tanggal': pd.to_datetime(['2023-01-01', '2023-01-05', '2023-01-10', '2023-01-15', '2023-01-20', '2023-02-01', '2023-02-07', '2023-02-14', '2023-02-20', '2023-03-01']),
+    'Deskripsi': [
+        'Gaji Januari',
+        'Belanja Bulanan',
+        'Tagihan Listrik',
+        'Penjualan Produk A',
+        'Makan Malam',
+        'Gaji Februari',
+        'Sewa Apartemen',
+        'Penjualan Produk B',
+        'Transportasi',
+        'Gaji Maret'
+    ],
+    'Jumlah': [
+        5000000, 1500000, 300000, 2000000, 250000,
+        5000000, 2000000, 1500000, 100000, 5000000
+    ],
+    'Jenis': [
+        'Pemasukan', 'Pengeluaran', 'Pengeluaran', 'Pemasukan', 'Pengeluaran',
+        'Pemasukan', 'Pengeluaran', 'Pemasukan', 'Pengeluaran', 'Pemasukan'
+    ]
+}
+df_dummy = pd.DataFrame(data)
 
-def load_transactions(): # Renamed from load_expenses
-    if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE, parse_dates=['Tanggal'])
+# Save the dummy DataFrame to a CSV file
+df_dummy.to_csv('transaksi_keuangan.csv', index=False)
+print("Dummy 'transaksi_keuangan.csv' created successfully.")
 
-        # Ensure correct dtypes if loaded from CSV
-        df['Jumlah'] = pd.to_numeric(df['Jumlah'], errors='coerce')
-        df['Tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
+# Memuat data transaksi keuangan dari file CSV
+try:
+    df_keuangan = pd.read_csv('transaksi_keuangan.csv')
+    print("\nData loaded successfully. First 5 rows:")
+    print(df_keuangan.head())
+    print("\nDataFrame Info:")
+    df_keuangan.info()
+except FileNotFoundError:
+    print("Error: 'transaksi_keuangan.csv' not found. Please ensure the file is in the correct directory.")
 
-        # If 'Type' column doesn't exist, assume all previous entries were 'Pengeluaran'
-        # and make amounts negative. Then add the 'Type' column.
-        if 'Kategori' in df.columns and 'Type' not in df.columns:
-            print("Kolom 'Type' tidak ditemukan di CSV. Mengasumsikan semua entri yang ada adalah 'Pengeluaran'.")
-            df['Type'] = 'Pengeluaran'
-            df['Jumlah'] = df['Jumlah'].abs() * -1 # Make amounts negative for expenses
-        elif 'Type' not in df.columns:
-            df['Type'] = 'Pengeluaran' # Default to Pengeluaran if no Kategori either
+df_keuangan['Tanggal'] = pd.to_datetime(df_keuangan['Tanggal'])
+print("Data types after converting 'Tanggal' column:")
+df_keuangan.info()
 
-        # Ensure 'Type' column is string
-        df['Type'] = df['Type'].astype(str)
+df_keuangan['Pemasukan'] = np.where(df_keuangan['Jenis'] == 'Pemasukan', df_keuangan['Jumlah'], 0)
+print("Kolom 'Pemasukan' berhasil dibuat.")
 
-    else:
-        df = pd.DataFrame(columns=['Tanggal', 'Deskripsi', 'Jumlah', 'Kategori', 'Type'])
-        # Explicitly set dtypes for the empty DataFrame to avoid FutureWarning
-        df['Tanggal'] = df['Tanggal'].astype('datetime64[ns]')
-        df['Jumlah'] = df['Jumlah'].astype('float64')
-        df['Type'] = df['Type'].astype(str)
-    return df
+df_keuangan['Pengeluaran'] = np.where(df_keuangan['Jenis'] == 'Pengeluaran', df_keuangan['Jumlah'], 0)
+print("Kolom 'Pengeluaran' berhasil dibuat.")
 
-def save_transactions(df): # Renamed from save_expenses
-    df.to_csv(CSV_FILE, index=False)
+print("Lima baris pertama df_keuangan dengan kolom 'Pemasukan' dan 'Pengeluaran':")
+print(df_keuangan.head())
 
-# --- 2. Fungsi Tambah Transaksi ---
-def add_transaction(df, date, description, amount, category, transaction_type): # Renamed from add_expense, added transaction_type
-    try:
-        # Convert date string to datetime object
-        date = pd.to_datetime(date)
-        # Convert amount to float
-        amount = float(amount)
-    except ValueError:
-        print("Error: Format tanggal atau jumlah tidak valid.")
-        return df
+df_keuangan['Bulan_Tahun'] = df_keuangan['Tanggal'].dt.to_period('M')
+print("Kolom 'Bulan_Tahun' berhasil dibuat.")
+print(df_keuangan.head())
 
-    # Adjust amount based on transaction type
-    if transaction_type == 'Pengeluaran':
-        amount = -abs(amount) # Ensure amount is negative for expenses
-    elif transaction_type == 'Pemasukan':
-        amount = abs(amount)  # Ensure amount is positive for income
-    else:
-        print("Error: Tipe transaksi tidak valid. Gunakan 'Pengeluaran' atau 'Pemasukan'.")
-        return df
+monthly_summary = df_keuangan.groupby('Bulan_Tahun').agg(
+    Pemasukan=('Pemasukan', 'sum'),
+    Pengeluaran=('Pengeluaran', 'sum')
+).reset_index()
+print("Summary of monthly income and expenses created.")
 
-    new_transaction = pd.DataFrame([{'Tanggal': date, 'Deskripsi': description, 'Jumlah': amount, 'Kategori': category, 'Type': transaction_type}])
-    df = pd.concat([df, new_transaction], ignore_index=True)
-    save_transactions(df) # Renamed from save_expenses
-    print(f"{transaction_type} '{description}' sejumlah Rp{abs(amount):,.2f} berhasil ditambahkan.") # Adjusted message
-    return df
+monthly_summary['Arus_Kas_Bersih'] = monthly_summary['Pemasukan'] - monthly_summary['Pengeluaran']
+print("Kolom 'Arus_Kas_Bersih' berhasil dibuat.")
 
-# --- 3. Fungsi Lihat Transaksi ---
-def view_transactions(df): # Renamed from view_expenses
-    if df.empty:
-        print("Belum ada transaksi yang tercatat.")
-    else:
-        print("Daftar Transaksi:")
-        # Using .to_string() for console display
-        print(df.sort_values(by='Tanggal', ascending=False).to_string(index=False))
+print("Lima baris pertama dari ringkasan bulanan:")
+print(monthly_summary.head())
 
-# --- 4. Fungsi Ringkasan Transaksi ---
-def summarize_transactions(df): # Renamed from summarize_expenses
-    if df.empty:
-        print("Belum ada transaksi yang tercatat untuk diringkas.")
-        return
+rata_rata_pemasukan = monthly_summary['Pemasukan'].mean()
+print(f"Rata-rata Pemasukan Bulanan: {rata_rata_pemasukan:,.2f}")
 
-    print("\n--- Ringkasan Transaksi ---")
-    # Calculate total balance (sum of all amounts)
-    total_balance = df['Jumlah'].sum()
-    total_income = df[df['Type'] == 'Pemasukan']['Jumlah'].sum()
-    total_expenses = df[df['Type'] == 'Pengeluaran']['Jumlah'].sum() * -1 # Display expenses as positive for summary
+rata_rata_pengeluaran = monthly_summary['Pengeluaran'].mean()
+print(f"Rata-rata Pengeluaran Bulanan: {rata_rata_pengeluaran:,.2f}")
 
-    print(f"Total Pemasukan: Rp{total_income:,.2f}")
-    print(f"Total Pengeluaran: Rp{total_expenses:,.2f}")
-    print(f"Saldo Akhir: Rp{total_balance:,.2f}")
+rata_rata_arus_kas_bersih = monthly_summary['Arus_Kas_Bersih'].mean()
+print(f"Rata-rata Arus Kas Bersih Bulanan: {rata_rata_arus_kas_bersih:,.2f}")
 
-    print("\nRingkasan Pengeluaran Berdasarkan Kategori:")
-    expense_summary = df[df['Type'] == 'Pengeluaran'].groupby('Kategori')['Jumlah'].sum().abs().sort_values(ascending=False)
-    if not expense_summary.empty:
-        # Using .to_string() for console display
-        print(expense_summary.to_frame().to_string())
-    else:
-        print("Tidak ada pengeluaran yang dikategorikan.")
-    print("----------------------------")
+plt.figure(figsize=(12, 6))
+plt.plot(monthly_summary['Bulan_Tahun'].astype(str), monthly_summary['Pemasukan'], label='Pemasukan', marker='o')
+plt.plot(monthly_summary['Bulan_Tahun'].astype(str), monthly_summary['Pengeluaran'], label='Pengeluaran', marker='o')
+plt.plot(monthly_summary['Bulan_Tahun'].astype(str), monthly_summary['Arus_Kas_Bersih'], label='Arus Kas Bersih', marker='o')
 
-# --- 5. Antarmuka Pengguna (Menu Utama) ---
-def main_menu():
-    global transactions_df # Renamed from expenses_df
-    while True:
-        print("\n--- Aplikasi Pelacak Keuangan ---") # Changed application name
-        print("1. Tambah Pengeluaran")
-        print("2. Tambah Pemasukan")
-        print("3. Lihat Transaksi")
-        print("4. Ringkas Transaksi")
-        print("5. Keluar")
-        choice = input("Pilih opsi: ")
-
-        if choice == '1':
-            date = input("Masukkan tanggal (YYYY-MM-DD): ")
-            description = input("Masukkan deskripsi: ")
-            amount = input("Masukkan jumlah: ")
-            category = input("Masukkan kategori: ")
-            transactions_df = add_transaction(transactions_df, date, description, amount, category, 'Pengeluaran')
-        elif choice == '2':
-            date = input("Masukkan tanggal (YYYY-MM-DD): ")
-            description = input("Masukkan deskripsi: ")
-            amount = input("Masukkan jumlah: ")
-            category = input("Masukkan kategori: ") # Income can also have categories
-            transactions_df = add_transaction(transactions_df, date, description, amount, category, 'Pemasukan')
-        elif choice == '3':
-            view_transactions(transactions_df)
-        elif choice == '4':
-            summarize_transactions(transactions_df)
-        elif choice == '5':
-            print("Terima kasih telah menggunakan aplikasi pelacak keuangan.")
-            break
-        else:
-            print("Pilihan tidak valid. Silakan coba lagi.")
-
-# --- Jalankan Aplikasi ---
-# Muat data transaksi saat aplikasi dimulai
-transactions_df = load_transactions() # Renamed from expenses_df, load_expenses
-
-# Jalankan menu utama
-main_menu()
+plt.title('Tren Keuangan Bulanan')
+plt.xlabel('Bulan dan Tahun')
+plt.ylabel('Jumlah (IDR)')
+plt.legend()
+plt.grid(True)
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
+```
