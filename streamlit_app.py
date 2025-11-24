@@ -127,43 +127,43 @@ elif menu == "Grafik":
 # Menu 5: Upload CSV
 # ============================
 elif menu == "Upload CSV":
-    st.subheader("📤 Upload File CSV untuk ditambahkan ke database dalam format tanggal, deskripsi, jumlah, kategori, dan type")
+    st.subheader("📤 Upload File CSV untuk ditambahkan ke database")
 
     uploaded = st.file_uploader("Pilih file CSV", type="csv")
 
     if uploaded is not None:
         try:
-            # Baca sedikit data untuk deteksi delimiter
+            # Baca sampel untuk deteksi delimiter
             sample = uploaded.read().decode(errors="ignore")
             uploaded.seek(0)
 
-            if ";" in sample.split("\n")[0]:
+            header = sample.split("\n")[0]
+            if ";" in header:
                 delimiter = ";"
-            elif "," in sample.split("\n")[0]:
+            elif "," in header:
                 delimiter = ","
-            elif "\t" in sample.split("\n")[0]:
+            elif "\t" in header:
                 delimiter = "\t"
             else:
-                delimiter = None
+                delimiter = ";"
 
-            if delimiter is None:
-                st.error("❌ Tidak dapat mendeteksi delimiter CSV. Gunakan CSV dengan ; atau ,")
-                st.stop()
-
-            # Coba beberapa encoding
-            encodings = ["utf-8", "latin1", "iso-8859-1", "cp1252"]
+            # Coba berbagai encoding
+            encodings = ["utf-8-sig", "utf-8", "latin1", "cp1252"]
             new_df = None
             for enc in encodings:
                 try:
                     uploaded.seek(0)
-                    new_df = pd.read_csv(uploaded, encoding=enc, sep=delimiter)
+                    new_df = pd.read_csv(uploaded, sep=delimiter, encoding=enc)
                     break
                 except:
-                    pass
+                    continue
 
             if new_df is None:
-                st.error("❌ Gagal membaca CSV walaupun delimiter sudah terdeteksi.")
+                st.error("❌ Gagal membaca file CSV.")
                 st.stop()
+
+            # Hapus baris kosong
+            new_df = new_df.dropna(how="all")
 
             # Kolom wajib
             required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
@@ -172,20 +172,44 @@ elif menu == "Upload CSV":
                 st.dataframe(new_df)
                 st.stop()
 
-            # Konversi tipe data
-            new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
+            # ==========================
+            # 🔥 PARSER TANGGAL SUPER LENGKAP
+            # ==========================
+            from dateutil import parser
+            
+            def flexible_date_parser(x):
+                try:
+                    return parser.parse(str(x), dayfirst=True)
+                except:
+                    return None
+
+            new_df["Tanggal"] = new_df["Tanggal"].apply(flexible_date_parser)
+
+            # ==========================
+            # 🔥 PARSER JUMLAH SUPER FLEKSIBEL
+            # ==========================
+            new_df["Jumlah"] = (
+                new_df["Jumlah"]
+                .astype(str)
+                .str.replace(",", "")
+                .str.replace(" ", "")
+            )
             new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
 
-            # Gabungkan database
+            # Hapus baris yang gagal diparse
+            new_df = new_df.dropna(subset=["Tanggal", "Jumlah"])
+
+            # Gabungkan dengan database lama
             old_df = load_transactions()
             combined_df = pd.concat([old_df, new_df], ignore_index=True)
+
             save_transactions(combined_df)
 
-            st.success("✅ CSV berhasil ditambahkan ke database!")
+            st.success(f"✅ Berhasil! {len(new_df)} baris ditambahkan ke database.")
             st.dataframe(new_df)
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat memproses CSV: {e}")
+            st.error(f"Terjadi kesalahan: {e}")
 
 # ============================
 # Menu 6: Perbaikan Data
