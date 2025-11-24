@@ -133,7 +133,7 @@ elif menu == "Upload CSV":
 
     if uploaded is not None:
         try:
-            # Baca CSV menggunakan beberapa encoding fallback
+            # Baca CSV dengan multi-encoding agar lebih toleran
             encodings = ["utf-8", "latin1", "iso-8859-1", "cp1252"]
             new_df = None
             for enc in encodings:
@@ -144,24 +144,26 @@ elif menu == "Upload CSV":
                     pass
 
             if new_df is None:
-                st.error("Gagal membaca file CSV. Coba simpan ulang CSV Anda sebagai UTF-8 atau CSV standar.")
-                return
+                st.error("❌ Gagal membaca CSV. Coba simpan ulang sebagai UTF-8 atau CSV standar.")
+                st.stop()
 
-            # Normalisasi kolom
+            # Kolom wajib
             required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
+
             if not all(col in new_df.columns for col in required_cols):
-                st.error(f"Format CSV tidak sesuai. Kolom harus mengandung: {', '.join(required_cols)}")
-                return
+                st.error(f"❌ Kolom tidak sesuai. Harus ada: {', '.join(required_cols)}")
+                st.stop()
 
             # Konversi tipe data
             new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
             new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
 
-            # Jika ada NaN akibat salah format
+            # Peringatan jika ada format salah
             if new_df["Tanggal"].isna().any():
-                st.warning("Beberapa tanggal tidak valid dan diubah menjadi NaT.")
+                st.warning("⚠ Beberapa tanggal tidak valid dan diubah menjadi NaT.")
+
             if new_df["Jumlah"].isna().any():
-                st.warning("Beberapa jumlah tidak valid dan diubah menjadi NaN.")
+                st.warning("⚠ Beberapa jumlah tidak valid dan diubah menjadi NaN.")
 
             # Gabungkan ke database
             old_df = load_transactions()
@@ -169,11 +171,12 @@ elif menu == "Upload CSV":
 
             save_transactions(combined_df)
 
-            st.success("CSV berhasil diupload dan ditambahkan ke database!")
+            st.success("✅ CSV berhasil ditambahkan ke database!")
             st.dataframe(new_df)
 
         except Exception as e:
             st.error(f"Terjadi kesalahan saat memproses CSV: {e}")
+
 
 # ============================
 # Menu 6: Perbaikan Data
