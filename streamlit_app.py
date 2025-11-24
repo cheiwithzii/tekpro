@@ -129,30 +129,64 @@ elif menu == "Grafik":
 elif menu == "Upload CSV":
     st.subheader("📤 Upload File CSV untuk ditambahkan ke database dalam format tanggal, deskripsi, jumlah, kategori, dan type")
 
+    import chardet
+    import csv
+
     uploaded = st.file_uploader("Pilih file CSV", type="csv")
 
     if uploaded is not None:
-        new_df = pd.read_csv(uploaded)
+        # --- AUTO DETECT ENCODING ---
+        raw_data = uploaded.read()
+        detected = chardet.detect(raw_data)
+        encoding = detected["encoding"] if detected["encoding"] else "utf-8"
+        uploaded.seek(0)
 
+        # --- AUTO DETECT DELIMITER ---
         try:
-            # Normalisasi kolom
+            text_sample = raw_data.decode(encoding, errors="ignore")
+            dialect = csv.Sniffer().sniff(text_sample, delimiters=",;|\t")
+            delimiter = dialect.delimiter
+        except:
+            delimiter = ";"  # fallback default (karena CSV Anda pakai ;)
+
+        uploaded.seek(0)
+
+        # --- LOAD CSV DENGAN PENGAMAN ---
+        try:
+            new_df = pd.read_csv(
+                uploaded,
+                encoding=encoding,
+                delimiter=delimiter,
+                engine="python"
+            )
+
             required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
+
+            # Cek apakah semua kolom ada
             if not all(col in new_df.columns for col in required_cols):
-                st.error("Format CSV tidak sesuai. Pastikan kolom sesuai format database.")
+                st.error("❌ Format CSV tidak sesuai. Pastikan kolom: Tanggal, Deskripsi, Jumlah, Kategori, Type")
             else:
-                # Konversi tipe data
+                # Normalisasi format data
                 new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
                 new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
 
+                # Load database lama
                 old_df = load_transactions()
+
+                # Gabungkan
                 combined_df = pd.concat([old_df, new_df], ignore_index=True)
 
+                # Simpan
                 save_transactions(combined_df)
-                st.success("CSV berhasil diupload dan digabungkan ke database!")
+
+                st.success("✅ CSV berhasil diupload & digabungkan ke database!")
+                st.info(f"Encoding terdeteksi: **{encoding}** | Delimiter: **'{delimiter}'**")
+
                 st.dataframe(new_df)
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
+            st.error("❌ Terjadi kesalahan saat membaca file, tetapi ini bukan kesalahan Anda.")
+            st.code(str(e))
 
 # ============================
 # Menu 6: Perbaikan Data
