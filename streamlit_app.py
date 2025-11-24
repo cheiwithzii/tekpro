@@ -3,18 +3,11 @@ import pandas as pd
 import os
 import uuid
 
-# -----------------------------
-# Session unik per user
-# -----------------------------
 if "user_id" not in st.session_state:
     st.session_state.user_id = str(uuid.uuid4())
 
 # Optional: tampilkan session di dashboard
 st.write(f"Session User ID: {st.session_state.user_id}")
-
-# ============================
-# 1. Konfigurasi & Fungsi Utils
-# ============================
 
 CSV_FILE = f"transactions_{st.session_state.user_id}.csv"
 
@@ -51,10 +44,6 @@ def add_transaction(date, description, amount, category, ttype):
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_transactions(df)
 
-# ============================
-# 2. Tampilan Streamlit
-# ============================
-
 st.title("📘 Spendee Fast")
 st.write("Kelola pemasukan dan pengeluaran harian Anda tanpa terlewat")
 
@@ -63,9 +52,6 @@ menu = st.sidebar.selectbox(
     ["Tambah Transaksi", "Lihat Transaksi", "Ringkasan", "Grafik", "Upload CSV", "Perbaikan Data"]
 )
 
-# ============================
-# Menu 1: Tambah Transaksi
-# ============================
 if menu == "Tambah Transaksi":
     st.subheader("➕ Tambah Transaksi")
 
@@ -79,9 +65,6 @@ if menu == "Tambah Transaksi":
         add_transaction(date, description, amount, category, ttype)
         st.success("Transaksi berhasil ditambahkan!")
 
-# ============================
-# Menu 2: Lihat Transaksi
-# ============================
 elif menu == "Lihat Transaksi":
     st.subheader("📃 Daftar Transaksi")
     df = load_transactions()
@@ -91,9 +74,6 @@ elif menu == "Lihat Transaksi":
     else:
         st.dataframe(df.sort_values("Tanggal", ascending=False))
 
-# ============================
-# Menu 3: Ringkasan
-# ============================
 elif menu == "Ringkasan":
     st.subheader("📊 Ringkasan keuangan Anda")
     df = load_transactions()
@@ -119,9 +99,6 @@ elif menu == "Ringkasan":
 
         st.dataframe(expense_summary)
 
-# ============================
-# Menu 4: Grafik
-# ============================
 elif menu == "Grafik":
     st.subheader("📈 Grafik Keuangan Anda")
     df = load_transactions()
@@ -150,9 +127,6 @@ elif menu == "Grafik":
 
         st.bar_chart(category_sum)
 
-# ============================
-# Menu 5: Upload CSV
-# ============================
 elif menu == "Upload CSV":
     st.subheader("📤 Upload File CSV untuk ditambahkan ke database")
 
@@ -199,9 +173,6 @@ elif menu == "Upload CSV":
                 st.dataframe(new_df)
                 st.stop()
 
-            # ==========================
-            # 🔥 PARSER TANGGAL SUPER LENGKAP
-            # ==========================
             from dateutil import parser
             
             def flexible_date_parser(x):
@@ -212,9 +183,6 @@ elif menu == "Upload CSV":
 
             new_df["Tanggal"] = new_df["Tanggal"].apply(flexible_date_parser)
 
-            # ==========================
-            # 🔥 PARSER JUMLAH SUPER FLEKSIBEL
-            # ==========================
             new_df["Jumlah"] = (
                 new_df["Jumlah"]
                 .astype(str)
@@ -238,9 +206,6 @@ elif menu == "Upload CSV":
         except Exception as e:
             st.error(f"Terjadi kesalahan: {e}")
 
-# ============================
-# Menu 6: Perbaikan Data
-# ============================
 elif menu == "Perbaikan Data":
     st.subheader("🛠️ Silakan perbaiki data Anda yang salah")
 
@@ -294,7 +259,6 @@ elif menu == "Perbaikan Data":
 
 import streamlit as st
 
-# ====== PINK PASTEL THEME ======
 st.markdown("""
 <style>
 
