@@ -1,93 +1,125 @@
+streamlit run app.py
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib
-matplotlib.use('Agg')  # use non-interactive backend for headless servers
-import matplotlib.pyplot as plt
+import os
 
-# Create dummy data for 'transaksi_keuangan.csv'
-data = {
-    'Tanggal': pd.to_datetime(['2023-01-01', '2023-01-05', '2023-01-10', '2023-01-15', '2023-01-20', '2023-02-01', '2023-02-07', '2023-02-14', '2023-02-20', '2023-03-01']),
-    'Deskripsi': [
-        'Gaji Januari',
-        'Belanja Bulanan',
-        'Tagihan Listrik',
-        'Penjualan Produk A',
-        'Makan Malam',
-        'Gaji Februari',
-        'Sewa Apartemen',
-        'Penjualan Produk B',
-        'Transportasi',
-        'Gaji Maret'
-    ],
-    'Jumlah': [
-        5000000, 1500000, 300000, 2000000, 250000,
-        5000000, 2000000, 1500000, 100000, 5000000
-    ],
-    'Jenis': [
-        'Pemasukan', 'Pengeluaran', 'Pengeluaran', 'Pemasukan', 'Pengeluaran',
-        'Pemasukan', 'Pengeluaran', 'Pemasukan', 'Pengeluaran', 'Pemasukan'
-    ]
-}
-df_dummy = pd.DataFrame(data)
+# ============================
+# 1. Konfigurasi & Fungsi Utils
+# ============================
 
-# Save the dummy DataFrame to a CSV file (if needed)
-df_dummy.to_csv('transaksi_keuangan.csv', index=False)
+CSV_FILE = "transactions.csv"
 
-st.write("Dummy 'transaksi_keuangan.csv' created (or overwritten) in app directory.")
+def load_transactions():
+    if os.path.exists(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce")
+        df["Jumlah"] = pd.to_numeric(df["Jumlah"], errors="coerce")
+        return df
+    else:
+        return pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"])
 
-# Memuat data transaksi keuangan dari file CSV
-try:
-    df_keuangan = pd.read_csv('transaksi_keuangan.csv')
-    st.write("Data loaded successfully. First 5 rows:")
-    st.dataframe(df_keuangan.head())
-except FileNotFoundError:
-    st.error("Error: 'transaksi_keuangan.csv' not found. Please ensure the file is in the correct directory.")
-    st.stop()
+def save_transactions(df):
+    df.to_csv(CSV_FILE, index=False)
 
-# Pastikan tipe tanggal
-df_keuangan['Tanggal'] = pd.to_datetime(df_keuangan['Tanggal'])
+def add_transaction(date, description, amount, category, ttype):
+    df = load_transactions()
 
-# Buat kolom Pemasukan dan Pengeluaran
-df_keuangan['Pemasukan'] = np.where(df_keuangan['Jenis'] == 'Pemasukan', df_keuangan['Jumlah'], 0)
-df_keuangan['Pengeluaran'] = np.where(df_keuangan['Jenis'] == 'Pengeluaran', df_keuangan['Jumlah'], 0)
+    # Penyesuaian tanda nilai
+    if ttype == "Pengeluaran":
+        amount = -abs(amount)
+    else:
+        amount = abs(amount)
 
-st.write("Kolom 'Pemasukan' dan 'Pengeluaran' telah dibuat.")
+    new_row = {
+        "Tanggal": date,
+        "Deskripsi": description,
+        "Jumlah": amount,
+        "Kategori": category,
+        "Type": ttype
+    }
 
-# Buat kolom Bulan_Tahun untuk agregasi bulanan
-df_keuangan['Bulan_Tahun'] = df_keuangan['Tanggal'].dt.to_period('M')
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    save_transactions(df)
 
-monthly_summary = df_keuangan.groupby('Bulan_Tahun').agg(
-    Pemasukan=('Pemasukan', 'sum'),
-    Pengeluaran=('Pengeluaran', 'sum')
-).reset_index()
+# ============================
+# 2. Tampilan Streamlit
+# ============================
 
-monthly_summary['Arus_Kas_Bersih'] = monthly_summary['Pemasukan'] - monthly_summary['Pengeluaran']
+st.title("📘 Aplikasi Pelacak Keuangan Anak Kos")
+st.write("Kelola pemasukan dan pengeluaran harian menggunakan database CSV.")
 
-st.write("Ringkasan bulanan:")
-st.dataframe(monthly_summary)
+menu = st.sidebar.selectbox(
+    "Menu",
+    ["Tambah Transaksi", "Lihat Transaksi", "Ringkasan", "Grafik"]
+)
 
-rata_rata_pemasukan = monthly_summary['Pemasukan'].mean()
-rata_rata_pengeluaran = monthly_summary['Pengeluaran'].mean()
-rata_rata_arus_kas_bersih = monthly_summary['Arus_Kas_Bersih'].mean()
+# ============================
+# Menu 1: Tambah Transaksi
+# ============================
+if menu == "Tambah Transaksi":
+    st.subheader("➕ Tambah Transaksi")
 
-st.write(f"Rata-rata Pemasukan Bulanan: {rata_rata_pemasukan:,.2f}")
-st.write(f"Rata-rata Pengeluaran Bulanan: {rata_rata_pengeluaran:,.2f}")
-st.write(f"Rata-rata Arus Kas Bersih Bulanan: {rata_rata_arus_kas_bersih:,.2f}")
+    ttype = st.selectbox("Jenis Transaksi", ["Pengeluaran", "Pemasukan"])
+    date = st.date_input("Tanggal")
+    description = st.text_input("Deskripsi")
+    amount = st.number_input("Jumlah (Rp)", min_value=0.0)
+    category = st.text_input("Kategori (contoh: Makanan, Transport)")
 
-# Plotting using a Figure and show via Streamlit
-fig, ax = plt.subplots(figsize=(12, 6))
-x = monthly_summary['Bulan_Tahun'].astype(str)
-ax.plot(x, monthly_summary['Pemasukan'], label='Pemasukan', marker='o')
-ax.plot(x, monthly_summary['Pengeluaran'], label='Pengeluaran', marker='o')
-ax.plot(x, monthly_summary['Arus_Kas_Bersih'], label='Arus Kas Bersih', marker='o')
+    if st.button("Simpan Transaksi"):
+        add_transaction(date, description, amount, category, ttype)
+        st.success("Transaksi berhasil ditambahkan!")
 
-ax.set_title('Tren Keuangan Bulanan')
-ax.set_xlabel('Bulan dan Tahun')
-ax.set_ylabel('Jumlah (IDR)')
-ax.legend()
-ax.grid(True)
-plt.xticks(rotation=45, ha='right')
-fig.tight_layout()
+# ============================
+# Menu 2: Lihat Transaksi
+# ============================
+elif menu == "Lihat Transaksi":
+    st.subheader("📃 Daftar Transaksi")
+    df = load_transactions()
 
-st.pyplot(fig)
+    if df.empty:
+        st.warning("Belum ada transaksi.")
+    else:
+        st.dataframe(df.sort_values("Tanggal", ascending=False))
+
+# ============================
+# Menu 3: Ringkasan
+# ============================
+elif menu == "Ringkasan":
+    st.subheader("📊 Ringkasan Keuangan")
+    df = load_transactions()
+
+    if df.empty:
+        st.warning("Belum ada data untuk diringkas.")
+    else:
+        total_income = df[df["Type"] == "Pemasukan"]["Jumlah"].sum()
+        total_expense = abs(df[df["Type"] == "Pengeluaran"]["Jumlah"].sum())
+        balance = total_income - total_expense
+
+        st.write(f"**Total Pemasukan:** Rp {total_income:,.0f}")
+        st.write(f"**Total Pengeluaran:** Rp {total_expense:,.0f}")
+        st.write(f"**Saldo Akhir:** Rp {balance:,.0f}")
+
+        st.subheader("🔎 Pengeluaran berdasarkan kategori")
+        expense_summary = (
+            df[df["Type"] == "Pengeluaran"]
+            .groupby("Kategori")["Jumlah"]
+            .sum()
+            .abs()
+        )
+
+        st.dataframe(expense_summary)
+
+# ============================
+# Menu 4: Grafik
+# ============================
+elif menu == "Grafik":
+    st.subheader("📈 Grafik Keuangan")
+    df = load_transactions()
+
+    if df.empty:
+        st.warning("Belum ada data untuk divisualisasikan.")
+    else:
+        st.line_chart(df.groupby("Tanggal")["Jumlah"].sum())
+
+        expense_only = df[df["Type"] == "Pengeluaran"]
+        st.bar_chart(expense_only.groupby("Kategori")["Jumlah"].sum().abs())
