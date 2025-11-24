@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 
 st.title("Aplikasi Manajemen & Visualisasi Pengeluaran")
 
@@ -100,3 +101,4 @@ if uploaded_file:
 
 else:
     st.info("Unggah file CSV untuk mulai.")
+
