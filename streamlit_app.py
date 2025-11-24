@@ -326,24 +326,3 @@ st.markdown("""
 [data-baseweb="textarea"] > textarea {
     background-color: #fff1f6 !important;
 }
-
-</style>
-""", unsafe_allow_html=True)
-    <style>
-    .stApp {
-        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80");
-        background-size: cover;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-        background-position: center;
-        background-color: #ffc0cb;  /* fallback pink pastel */
-        height: 100vh;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.title("Test Background")
-st.write("Jika ini muncul, background juga harus terlihat.")
-
