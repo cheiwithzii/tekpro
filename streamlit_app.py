@@ -260,8 +260,8 @@ elif menu == "Perbaikan Data":
 import streamlit as st
 
 st.markdown("""
-<!-- Link Google Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Great+Vibes&family=Montserrat:wght@400&family=Lato:wght@400&family=Raleway:wght@400&display=swap" rel="stylesheet">
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Sacramento&family=Playfair+Display:wght@400&family=Roboto:wght@400&family=Lato:wght@400&display=swap" rel="stylesheet">
 
 <style>
 /* ====== Background Pink Pastel ====== */
@@ -273,24 +273,23 @@ st.markdown("""
 
 /* Judul Utama */
 .stApp h1 {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Cormorant Garamond', serif;
     font-weight: 700;
 }
 
 /* Header */
 .stApp h2 {
-    font-family: 'Great Vibes', cursive;
-    font-weight: 400;
+    font-family: 'Sacramento', cursive;
 }
 
 /* Subheader */
 .stApp h3 {
-    font-family: 'Gilda Display', serif;
+    font-family: 'Playfair Display', serif;
 }
 
 /* Body Text */
 .stApp p {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Roboto', sans-serif;
 }
 
 /* Sidebar font */
@@ -301,7 +300,7 @@ st.markdown("""
 
 /* Buttons font */
 .stButton > button {
-    font-family: 'Raleway', sans-serif;
+    font-family: 'Lato', sans-serif;
     background-color: #ffb6c9 !important;
     color: white !important;
     border-radius: 8px !important;
@@ -316,9 +315,8 @@ st.markdown("""
 /* Input / textarea font */
 .stTextInput input,
 [data-baseweb="textarea"] > textarea {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Roboto', sans-serif;
     background-color: #fff1f6 !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
