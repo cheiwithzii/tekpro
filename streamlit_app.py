@@ -133,42 +133,52 @@ elif menu == "Upload CSV":
 
     if uploaded is not None:
         try:
-            # Baca CSV dengan multi-encoding agar lebih toleran
+            # Baca sedikit data untuk deteksi delimiter
+            sample = uploaded.read().decode(errors="ignore")
+            uploaded.seek(0)
+
+            if ";" in sample.split("\n")[0]:
+                delimiter = ";"
+            elif "," in sample.split("\n")[0]:
+                delimiter = ","
+            elif "\t" in sample.split("\n")[0]:
+                delimiter = "\t"
+            else:
+                delimiter = None
+
+            if delimiter is None:
+                st.error("❌ Tidak dapat mendeteksi delimiter CSV. Gunakan CSV dengan ; atau ,")
+                st.stop()
+
+            # Coba beberapa encoding
             encodings = ["utf-8", "latin1", "iso-8859-1", "cp1252"]
             new_df = None
             for enc in encodings:
                 try:
-                    new_df = pd.read_csv(uploaded, encoding=enc)
+                    uploaded.seek(0)
+                    new_df = pd.read_csv(uploaded, encoding=enc, sep=delimiter)
                     break
                 except:
                     pass
 
             if new_df is None:
-                st.error("❌ Gagal membaca CSV. Coba simpan ulang sebagai UTF-8 atau CSV standar.")
+                st.error("❌ Gagal membaca CSV walaupun delimiter sudah terdeteksi.")
                 st.stop()
 
             # Kolom wajib
             required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
-
             if not all(col in new_df.columns for col in required_cols):
                 st.error(f"❌ Kolom tidak sesuai. Harus ada: {', '.join(required_cols)}")
+                st.dataframe(new_df)
                 st.stop()
 
             # Konversi tipe data
             new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
             new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
 
-            # Peringatan jika ada format salah
-            if new_df["Tanggal"].isna().any():
-                st.warning("⚠ Beberapa tanggal tidak valid dan diubah menjadi NaT.")
-
-            if new_df["Jumlah"].isna().any():
-                st.warning("⚠ Beberapa jumlah tidak valid dan diubah menjadi NaN.")
-
-            # Gabungkan ke database
+            # Gabungkan database
             old_df = load_transactions()
             combined_df = pd.concat([old_df, new_df], ignore_index=True)
-
             save_transactions(combined_df)
 
             st.success("✅ CSV berhasil ditambahkan ke database!")
@@ -176,7 +186,6 @@ elif menu == "Upload CSV":
 
         except Exception as e:
             st.error(f"Terjadi kesalahan saat memproses CSV: {e}")
-
 
 # ============================
 # Menu 6: Perbaikan Data
