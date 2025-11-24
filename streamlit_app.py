@@ -127,7 +127,7 @@ elif menu == "Grafik":
 # Menu 5: Upload CSV
 # ============================
 elif menu == "Upload CSV":
-    st.subheader("📤 Upload File CSV untuk Ditambahkan ke Database dalam Format Tanggal, Deskripsi, Jumlah, Kategori, dan Type")
+    st.subheader("📤 Upload File CSV untuk ditambahkan ke database dalam format tanggal, deskripsi, jumlah, kategori, dan type")
 
     uploaded = st.file_uploader("Pilih file CSV", type="csv")
 
