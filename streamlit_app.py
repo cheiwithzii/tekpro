@@ -62,9 +62,6 @@ if uploaded:
 
         st.success("File berhasil dimuat!")
 
-        # -----------------------------
-        # MENU UTAMA
-        -----------------------------
         menu = st.sidebar.radio(
             "Menu",
             ["📄 Lihat Data", "➕ Tambah Transaksi", "❌ Hapus Transaksi", "📈 Analisis", "💾 Download Data"]
