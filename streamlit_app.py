@@ -44,8 +44,8 @@ def add_transaction(date, description, amount, category, ttype):
 # 2. Tampilan Streamlit
 # ============================
 
-st.title("📘 Aplikasi Pelacak Keuangan Anak Kos")
-st.write("Kelola pemasukan dan pengeluaran harian menggunakan database CSV.")
+st.title("📘 Spendee Fast")
+st.write("Kelola pemasukan dan pengeluaran harian Anda tanpa terlewat")
 
 menu = st.sidebar.selectbox(
     "Menu",
@@ -84,7 +84,7 @@ elif menu == "Lihat Transaksi":
 # Menu 3: Ringkasan
 # ============================
 elif menu == "Ringkasan":
-    st.subheader("📊 Ringkasan Keuangan")
+    st.subheader("📊 Ringkasan keuangan Anda")
     df = load_transactions()
 
     if df.empty:
@@ -112,7 +112,7 @@ elif menu == "Ringkasan":
 # Menu 4: Grafik
 # ============================
 elif menu == "Grafik":
-    st.subheader("📈 Grafik Keuangan")
+    st.subheader("📈 Grafik keuangan Anda")
     df = load_transactions()
 
     if df.empty:
@@ -158,7 +158,7 @@ elif menu == "Upload CSV":
 # Menu 6: Perbaikan Data
 # ============================
 elif menu == "Perbaikan Data":
-    st.subheader("🛠️ Perbaikan Data Transaksi")
+    st.subheader("🛠️ Silakan perbaiki data Anda yang salah")
 
     df = load_transactions()
 
@@ -192,15 +192,15 @@ elif menu == "Perbaikan Data":
             st.dataframe(df)
 
         st.write("---")
-        st.write("### Hapus Transaksi dengan Nilai Tidak Masuk Akal (misalnya > 10 juta)")
+        st.write("### Hapus Transaksi dengan Nilai Tidak Masuk Akal")
 
-        if st.button("Bersihkan Nilai Tidak Wajar"):
+        if st.button("Bersihkan Nilai Tidak Wajar! "):
             before = len(df)
             df = df[df["Jumlah"].abs() < 10_000_000]
             removed = before - len(df)
             save_transactions(df)
             st.success(f"{removed} baris tidak wajar berhasil dibersihkan!")
-
+            
         st.write("---")
         st.write("### Reset Database (opsional)")
 
