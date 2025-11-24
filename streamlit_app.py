@@ -260,34 +260,63 @@ elif menu == "Perbaikan Data":
 import streamlit as st
 
 st.markdown("""
-<style>
+<!-- Link Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Great+Vibes&family=Montserrat:wght@400&family=Lato:wght@400&family=Raleway:wght@400&display=swap" rel="stylesheet">
 
+<style>
+/* ====== Background Pink Pastel ====== */
 [data-testid="stAppViewContainer"] {
     background: linear-gradient(180deg, #ffe6ee 0%, #fff6fa 60%, #ffffff 100%);
 }
 
-[data-testid="stHeader"] {
-    background-color: rgba(255, 255, 255, 0);
+/* ====== Font Per Elemen ====== */
+
+/* Judul Utama */
+.stApp h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
 }
 
-[data-testid="stSidebar"] {
-    background-color: #ffeef4;
+/* Header */
+.stApp h2 {
+    font-family: 'Great Vibes', cursive;
+    font-weight: 400;
 }
 
+/* Subheader */
+.stApp h3 {
+    font-family: 'Gilda Display', serif;
+}
+
+/* Body Text */
+.stApp p {
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Sidebar font */
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] p {
+    font-family: 'Lato', sans-serif;
+}
+
+/* Buttons font */
 .stButton > button {
+    font-family: 'Raleway', sans-serif;
     background-color: #ffb6c9 !important;
     color: white !important;
     border-radius: 8px !important;
     border: none;
 }
 
+/* Hover Buttons */
 .stButton > button:hover {
     background-color: #ff9db8 !important;
 }
 
-.stTextInput > div > div > input,
-.stSelectbox > div > div > select,
+/* Input / textarea font */
+.stTextInput input,
 [data-baseweb="textarea"] > textarea {
+    font-family: 'Montserrat', sans-serif;
     background-color: #fff1f6 !important;
 }
 
