@@ -2,10 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 
-# ============================
-# 1. Konfigurasi & Fungsi Utils
-# ============================
-
 CSV_FILE = "transactions.csv"
 
 def load_transactions():
@@ -40,10 +36,6 @@ def add_transaction(date, description, amount, category, ttype):
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_transactions(df)
 
-# ============================
-# 2. Tampilan Streamlit
-# ============================
-
 st.title("📘 Aplikasi Pelacak Keuangan Anak Kos")
 st.write("Kelola pemasukan dan pengeluaran harian menggunakan database CSV.")
 
@@ -52,9 +44,6 @@ menu = st.sidebar.selectbox(
     ["Tambah Transaksi", "Lihat Transaksi", "Ringkasan", "Grafik"]
 )
 
-# ============================
-# Menu 1: Tambah Transaksi
-# ============================
 if menu == "Tambah Transaksi":
     st.subheader("➕ Tambah Transaksi")
 
@@ -68,9 +57,6 @@ if menu == "Tambah Transaksi":
         add_transaction(date, description, amount, category, ttype)
         st.success("Transaksi berhasil ditambahkan!")
 
-# ============================
-# Menu 2: Lihat Transaksi
-# ============================
 elif menu == "Lihat Transaksi":
     st.subheader("📃 Daftar Transaksi")
     df = load_transactions()
@@ -80,9 +66,6 @@ elif menu == "Lihat Transaksi":
     else:
         st.dataframe(df.sort_values("Tanggal", ascending=False))
 
-# ============================
-# Menu 3: Ringkasan
-# ============================
 elif menu == "Ringkasan":
     st.subheader("📊 Ringkasan Keuangan")
     df = load_transactions()
@@ -108,9 +91,6 @@ elif menu == "Ringkasan":
 
         st.dataframe(expense_summary)
 
-# ============================
-# Menu 4: Grafik
-# ============================
 elif menu == "Grafik":
     st.subheader("📈 Grafik Keuangan")
     df = load_transactions()
