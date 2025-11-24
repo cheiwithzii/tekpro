@@ -129,8 +129,8 @@ elif menu == "Grafik":
 elif menu == "Upload CSV":
     st.subheader("📤 Upload File CSV untuk ditambahkan ke database dalam format tanggal, deskripsi, jumlah, kategori, dan type")
 
-    import chardet
     import csv
+    import io
 
     uploaded = st.file_uploader("Pilih file CSV", type="csv")
 
