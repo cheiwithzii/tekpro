@@ -132,61 +132,161 @@ elif menu == "Upload CSV":
     import csv
     import io
 
+    # Try import chardet but don't fail if not installed
+    try:
+        import chardet
+        _HAS_CHARDET = True
+    except Exception:
+        _HAS_CHARDET = False
+
     uploaded = st.file_uploader("Pilih file CSV", type="csv")
 
     if uploaded is not None:
-        # --- AUTO DETECT ENCODING ---
-        raw_data = uploaded.read()
-        detected = chardet.detect(raw_data)
-        encoding = detected["encoding"] if detected["encoding"] else "utf-8"
-        uploaded.seek(0)
-
-        # --- AUTO DETECT DELIMITER ---
+        # Read raw bytes once
         try:
-            text_sample = raw_data.decode(encoding, errors="ignore")
-            dialect = csv.Sniffer().sniff(text_sample, delimiters=",;|\t")
-            delimiter = dialect.delimiter
-        except:
-            delimiter = ";"  # fallback default (karena CSV Anda pakai ;)
-
-        uploaded.seek(0)
-
-        # --- LOAD CSV DENGAN PENGAMAN ---
-        try:
-            new_df = pd.read_csv(
-                uploaded,
-                encoding=encoding,
-                delimiter=delimiter,
-                engine="python"
-            )
-
-            required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
-
-            # Cek apakah semua kolom ada
-            if not all(col in new_df.columns for col in required_cols):
-                st.error("❌ Format CSV tidak sesuai. Pastikan kolom: Tanggal, Deskripsi, Jumlah, Kategori, Type")
-            else:
-                # Normalisasi format data
-                new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"], errors="coerce")
-                new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
-
-                # Load database lama
-                old_df = load_transactions()
-
-                # Gabungkan
-                combined_df = pd.concat([old_df, new_df], ignore_index=True)
-
-                # Simpan
-                save_transactions(combined_df)
-
-                st.success("✅ CSV berhasil diupload & digabungkan ke database!")
-                st.info(f"Encoding terdeteksi: **{encoding}** | Delimiter: **'{delimiter}'**")
-
-                st.dataframe(new_df)
-
+            uploaded_bytes = uploaded.read()
         except Exception as e:
-            st.error("❌ Terjadi kesalahan saat membaca file, tetapi ini bukan kesalahan Anda.")
+            st.error("Gagal membaca file upload (I/O). Coba ulangi.")
             st.code(str(e))
+            uploaded.seek(0)
+            continue  # move on; in some envs 'continue' inside streamlit is fine as flow control
+
+        # --- 1) DETEKSI ENCODING (dengan fallback) ---
+        encoding = None
+        if _HAS_CHARDET:
+            try:
+                det = chardet.detect(uploaded_bytes)
+                encoding = det.get("encoding")
+            except Exception:
+                encoding = None
+
+        # If chardet not available or returned None, try common encodings
+        if not encoding:
+            for enc_try in ("utf-8", "utf-8-sig", "utf-16", "latin1", "cp1252"):
+                try:
+                    uploaded_bytes.decode(enc_try)
+                    encoding = enc_try
+                    break
+                except Exception:
+                    continue
+
+        if not encoding:
+            # last resort
+            encoding = "utf-8"
+
+        # Prepare text for sniffing/reading
+        try:
+            text = uploaded_bytes.decode(encoding, errors="replace")
+        except Exception as e:
+            st.error("Gagal meng-decode file. Encoding terdeteksi tidak cocok.")
+            st.code(str(e))
+            uploaded.seek(0)
+            continue
+
+        # --- 2) DETEKSI DELIMITER (sniffer safe) ---
+        delimiter = ","
+        try:
+            sample = text[:4096]  # don't pass giant text to sniffer
+            # Sniffer can raise Error, so protect it
+            dialect = csv.Sniffer().sniff(sample, delimiters=[",", ";", "|", "\t"])
+            delimiter = dialect.delimiter
+            # If sniffer thinks it's headerless, ensure has header:
+            has_header = csv.Sniffer().has_header(sample)
+        except Exception:
+            # Fallback heuristics: count common delimiters in sample
+            counts = {",": sample.count(","), ";": sample.count(";"), "|": sample.count("|"), "\t": sample.count("\t")}
+            delimiter = max(counts, key=counts.get)
+            if counts[delimiter] == 0:
+                delimiter = ","  # ultimate fallback
+
+        # --- 3) BACA DENGAN PANDAS via StringIO (lebih stabil) ---
+        try:
+            str_io = io.StringIO(text)
+            new_df = pd.read_csv(str_io, sep=delimiter, engine="python")
+        except Exception as e:
+            st.error("❌ Gagal membaca CSV dengan pandas. Berikut detail teknis:")
+            st.code(str(e))
+            st.info(f"Deteksi encoding: {encoding} | Delimiter: '{delimiter}'")
+            uploaded.seek(0)
+            continue
+
+        # --- 4) NORMALISASI NAMA KOLOM: trim spasi & samakan kapitalisasi sederhana ---
+        new_df.columns = [col.strip() for col in new_df.columns]
+
+        # optional: try to map common alternative names to required ones
+        col_map = {}
+        cols_lower = {c.lower(): c for c in new_df.columns}
+        # common alternatives
+        if "tanggal" in cols_lower and "Tanggal" not in new_df.columns:
+            col_map[cols_lower["tanggal"]] = "Tanggal"
+        if "deskripsi" in cols_lower and "Deskripsi" not in new_df.columns:
+            col_map[cols_lower["deskripsi"]] = "Deskripsi"
+        if "jumlah" in cols_lower and "Jumlah" not in new_df.columns:
+            col_map[cols_lower["jumlah"]] = "Jumlah"
+        if "kategori" in cols_lower and "Kategori" not in new_df.columns:
+            col_map[cols_lower["kategori"]] = "Kategori"
+        # handle common local variations
+        if "type" not in new_df.columns:
+            for alt in ("tipe", "jenis", "type"):
+                if alt in cols_lower and "Type" not in new_df.columns:
+                    col_map[cols_lower[alt]] = "Type"
+        if col_map:
+            new_df = new_df.rename(columns=col_map)
+
+        # --- 5) CEK KOLOM REQUIRED ---
+        required_cols = ["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]
+        missing = [c for c in required_cols if c not in new_df.columns]
+        if missing:
+            st.error(f"❌ Format CSV tidak sesuai. Kolom yang hilang: {missing}")
+            st.info(f"Kolom terdeteksi: {list(new_df.columns)}")
+            st.warning("Saya bisa mencoba otomatis memperbaiki jika Anda ingin (mis. map 'tipe'->'Type').")
+            continue
+
+        # --- 6) KONVERSI TIPE DATA DENGAN PERBAIKAN ---
+        new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"].astype(str).str.strip(), dayfirst=True, errors="coerce")
+        # If many NaT, try alternative parse
+        if new_df["Tanggal"].isna().sum() > 0:
+            # Try parsing with infer_datetime_format True as fallback
+            try:
+                new_df["Tanggal"] = pd.to_datetime(new_df["Tanggal"].astype(str).str.strip(), infer_datetime_format=True, errors="coerce")
+            except Exception:
+                pass
+
+        # Bersihkan kolom Jumlah dari tanda non-digit (Rp, ., ,) lalu numeric
+        new_df["Jumlah"] = new_df["Jumlah"].astype(str).str.replace(r"[^\d\-]", "", regex=True)
+        new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
+
+        # Jika ada baris dengan NaN di 'Tanggal' atau 'Jumlah', tunjukkan preview dan minta konfirmasi
+        bad_rows = new_df[new_df[["Tanggal", "Jumlah"]].isna().any(axis=1)]
+        if not bad_rows.empty:
+            st.warning("Beberapa baris memiliki Tanggal atau Jumlah yang tidak valid. Tampilkan preview sebelum menyimpan:")
+            st.dataframe(bad_rows)
+            if st.button("Simpan tetap (abaikan baris invalid)"):
+                # drop invalid rows then save
+                good = new_df.dropna(subset=["Tanggal", "Jumlah"])
+                old_df = load_transactions()
+                combined_df = pd.concat([old_df, good], ignore_index=True)
+                save_transactions(combined_df)
+                st.success("CSV digabungkan (baris invalid diabaikan).")
+            else:
+                st.info("Periksa dan perbaiki file CSV Anda, atau klik tombol 'Simpan tetap' untuk menyimpan baris valid saja.")
+            continue
+
+        # --- 7) Gabungkan dan Simpan ---
+        try:
+            old_df = load_transactions()
+            combined_df = pd.concat([old_df, new_df], ignore_index=True)
+            save_transactions(combined_df)
+            st.success("✅ CSV berhasil diupload & digabungkan ke database!")
+            st.info(f"Encoding terdeteksi: **{encoding}** | Delimiter: **'{delimiter}'**")
+            st.dataframe(new_df)
+        except Exception as e:
+            st.error("Gagal menggabungkan dan menyimpan data ke database.")
+            st.code(str(e))
+
+        # reset file pointer (just in case)
+        uploaded.seek(0)
+
 
 # ============================
 # Menu 6: Perbaikan Data
