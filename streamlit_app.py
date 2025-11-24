@@ -208,3 +208,40 @@ elif menu == "Perbaikan Data":
             save_transactions(pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]))
             st.error("Semua data telah dihapus!")
 
+import streamlit as st
+
+# ====== PINK PASTEL THEME ======
+st.markdown("""
+<style>
+
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(180deg, #ffe6ee 0%, #fff6fa 60%, #ffffff 100%);
+}
+
+[data-testid="stHeader"] {
+    background-color: rgba(255, 255, 255, 0);
+}
+
+[data-testid="stSidebar"] {
+    background-color: #ffeef4;
+}
+
+.stButton > button {
+    background-color: #ffb6c9 !important;
+    color: white !important;
+    border-radius: 8px !important;
+    border: none;
+}
+
+.stButton > button:hover {
+    background-color: #ff9db8 !important;
+}
+
+.stTextInput > div > div > input,
+.stSelectbox > div > div > select,
+[data-baseweb="textarea"] > textarea {
+    background-color: #fff1f6 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
