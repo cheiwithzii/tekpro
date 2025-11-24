@@ -29,14 +29,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# -----------------------------
-# Metrics Card (opsional)
-# -----------------------------
-col1, col2, col3 = st.columns(3)
-col1.metric("Pemasukan", "Rp 1.500.000")
-col2.metric("Pengeluaran", "Rp 900.000")
-col3.metric("Saldo", "Rp 600.000")
-
 # ============================
 # 1. Konfigurasi & Fungsi Utils
 # ============================
