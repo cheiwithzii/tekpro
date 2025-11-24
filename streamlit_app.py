@@ -17,16 +17,17 @@ st.write(f"Session User ID: {st.session_state.user_id}")
 # 1. Konfigurasi & Fungsi Utils
 # ============================
 
-CSV_FILE = "transactions.csv"
+CSV_FILE = f"transactions_{st.session_state.user_id}.csv"
 
 def load_transactions():
     if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
-        df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce")
-        df["Jumlah"] = pd.to_numeric(df["Jumlah"], errors="coerce")
+        df = pd.read_csv(CSV_FILE, parse_dates=['Tanggal'])
+        df['Jumlah'] = pd.to_numeric(df['Jumlah'], errors='coerce')
+        df['Tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
         return df
     else:
-        return pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"])
+        # Data kosong per user
+        return pd.DataFrame(columns=['Tanggal','Deskripsi','Jumlah','Kategori','Type'])
 
 def save_transactions(df):
     df.to_csv(CSV_FILE, index=False)
@@ -329,19 +330,3 @@ st.markdown("""
 
 </style>
 """, unsafe_allow_html=True)
-
-# -----------------------------
-# Background gambar / styling
-# -----------------------------
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e");
-        background-size: cover;
-        background-attachment: fixed;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
