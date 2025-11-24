@@ -1,183 +1,167 @@
 import streamlit as st
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
+from datetime import datetime
 
-st.title("📊 Aplikasi Manajemen & Analisis Keuangan Harian/Mingguan/Bulanan")
-
-st.write("""
-Aplikasi ini digunakan untuk mengelola, mengedit, dan menganalisis pengeluaran.
-Anda bisa upload file CSV/Excel, menambah transaksi baru, menghapus data, dan melihat analisis keuangan.
-""")
-
-# ============================================
-# 1. UPLOAD FILE
-# ============================================
-st.header("1️⃣ Upload Data (CSV / Excel)")
-
-file = st.file_uploader("Upload file CSV/Excel", type=["csv", "xlsx"])
-
-if file:
-
-    # Membaca file
+# -----------------------------
+# FUNGSI MEMUAT DATA
+# -----------------------------
+def load_data(file):
     if file.name.endswith(".csv"):
         df = pd.read_csv(file)
-    else:
+    elif file.name.endswith(".xlsx"):
         df = pd.read_excel(file)
-
-    # Tampilkan data awal
-    st.subheader("📄 Data Anda")
-    st.dataframe(df)
-
-    # Validasi kolom wajib
-    required_columns = ["tanggal", "jumlah"]
-    for col in required_columns:
-        if col not in df.columns:
-            st.error(f"❌ File harus memiliki kolom '{col}'")
-            st.stop()
-
-    # Konversi format tanggal
-    df["tanggal"] = pd.to_datetime(df["tanggal"])
-
-    # ============================================
-    # 2. MENU PENGELOLAAN DATA
-    # ============================================
-    st.header("2️⃣ Kelola Data")
-
-    menu = st.selectbox(
-        "Pilih opsi:",
-        [
-            "Pilih",
-            "Tambah transaksi",
-            "Hapus berdasarkan index",
-            "Hapus berdasarkan tanggal",
-            "Hapus berdasarkan kategori (jika ada)"
-        ]
-    )
-
-    # ---------------- Tambah transaksi ----------------
-    if menu == "Tambah transaksi":
-        st.subheader("📌 Tambah Transaksi Baru")
-
-        tgl = st.date_input("Tanggal")
-        nominal = st.number_input("Jumlah (Rp)", min_value=0)
-
-        # Opsional kategori
-        kategori = ""
-        if "kategori" in df.columns:
-            kategori = st.text_input("Kategori (opsional)")
-
-        if st.button("Tambah"):
-            new_row = {
-                "tanggal": pd.to_datetime(tgl),
-                "jumlah": nominal
-            }
-            if "kategori" in df.columns:
-                new_row["kategori"] = kategori
-
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-            st.success("Transaksi berhasil ditambahkan!")
-            st.dataframe(df)
-
-    # ---------------- Hapus index ----------------
-    if menu == "Hapus berdasarkan index":
-        st.subheader("🗑 Hapus Berdasarkan Index")
-
-        st.dataframe(df.reset_index())
-
-        idx = st.number_input(
-            "Masukkan index yang ingin dihapus:",
-            min_value=0,
-            max_value=len(df) - 1,
-            step=1
-        )
-
-        if st.button("Hapus Index"):
-            df = df.drop(df.index[int(idx)]).reset_index(drop=True)
-            st.success(f"Index {idx} berhasil dihapus!")
-            st.dataframe(df)
-
-    # ---------------- Hapus tanggal ----------------
-    if menu == "Hapus berdasarkan tanggal":
-        st.subheader("🗑 Hapus Berdasarkan Tanggal")
-
-        tanggal = st.selectbox(
-            "Pilih tanggal:",
-            df["tanggal"].dt.date.unique()
-        )
-
-        if st.button("Hapus Tanggal"):
-            df = df[df["tanggal"].dt.date != tanggal].reset_index(drop=True)
-            st.success(f"Tanggal {tanggal} berhasil dihapus!")
-            st.dataframe(df)
-
-    # ---------------- Hapus kategori ----------------
-    if menu == "Hapus berdasarkan kategori (jika ada)":
-        if "kategori" not in df.columns:
-            st.error("Kolom 'kategori' tidak tersedia di data.")
-        else:
-            st.subheader("🗑 Hapus Berdasarkan Kategori")
-
-            kategori = st.selectbox("Pilih kategori:", df["kategori"].unique())
-
-            if st.button("Hapus Kategori"):
-                df = df[df["kategori"] != kategori].reset_index(drop=True)
-                st.success(f"Kategori '{kategori}' berhasil dihapus!")
-                st.dataframe(df)
-
-    # ============================================
-    # 3. ANALISIS KEUANGAN TERPISAH
-    # ============================================
-
-    st.header("3️⃣ Analisis Keuangan")
-
-    df["bulan"] = df["tanggal"].dt.strftime("%Y-%m")
-    monthly = df.groupby("bulan")["jumlah"].sum()
-
-    # --------------------- Analisis 1 ---------------------
-    st.subheader("📌 1. Total Pengeluaran per Bulan")
-    st.dataframe(monthly)
-
-    # --------------------- Analisis 2 ---------------------
-    st.subheader("📌 2. Rata-rata Pengeluaran per Bulan")
-    avg = monthly.mean()
-    st.info(f"💰 Rata-rata: **Rp {avg:,.0f}** per bulan")
-
-    # --------------------- Analisis 3 ---------------------
-    st.subheader("📈 3. Grafik Pengeluaran Bulanan (Line Plot)")
-    fig1, ax1 = plt.subplots()
-    ax1.plot(monthly.index, monthly.values, marker="o")
-    ax1.set_title("Pengeluaran Bulanan")
-    ax1.set_ylabel("Jumlah (Rp)")
-    ax1.set_xticklabels(monthly.index, rotation=45)
-    st.pyplot(fig1)
-
-    # --------------------- Analisis 4 ---------------------
-    st.subheader("📊 4. Analisis Pengeluaran Berdasarkan Kategori")
-    if "kategori" in df.columns:
-        kategori_sum = df.groupby("kategori")["jumlah"].sum()
-        st.dataframe(kategori_sum)
-
-        # Grafik batang
-        fig2, ax2 = plt.subplots()
-        ax2.bar(kategori_sum.index, kategori_sum.values)
-        ax2.set_title("Pengeluaran per Kategori")
-        ax2.set_ylabel("Jumlah (Rp)")
-        ax2.set_xticklabels(kategori_sum.index, rotation=45)
-        st.pyplot(fig2)
     else:
-        st.info("Kolom 'kategori' tidak ditemukan — bagian ini dilewati.")
+        st.error("Format file tidak didukung!")
+        return None
 
-    # --------------------- Analisis 5 ---------------------
-    st.subheader("🥧 5. Pie Chart Distribusi Pengeluaran Bulanan")
-    fig3, ax3 = plt.subplots()
-    ax3.pie(
-        monthly.values,
-        labels=monthly.index,
-        autopct="%1.1f%%",
-        startangle=90
-    )
-    ax3.set_title("Distribusi Pengeluaran Bulanan")
-    st.pyplot(fig3)
+    # Pastikan kolom wajib ada
+    required_cols = ["Tanggal", "Kategori", "Jenis", "Jumlah"]
+    if not all(c in df.columns for c in required_cols):
+        st.error("Kolom wajib: Tanggal, Kategori, Jenis, Jumlah")
+        return None
+
+    # Konversi tanggal
+    df["Tanggal"] = pd.to_datetime(df["Tanggal"])
+    return df
+
+# -----------------------------
+# FUNGSI TAMBAH TRANSAKSI
+# -----------------------------
+def add_transaction(df, tanggal, kategori, jenis, jumlah):
+    new_row = {
+        "Tanggal": tanggal,
+        "Kategori": kategori,
+        "Jenis": jenis,
+        "Jumlah": jumlah
+    }
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    return df
+
+# -----------------------------
+# FUNGSI HAPUS TRANSAKSI
+# -----------------------------
+def delete_transaction(df, index):
+    df = df.drop(index).reset_index(drop=True)
+    return df
+
+# -----------------------------
+# TITLE
+# -----------------------------
+st.title("📊 Aplikasi Pengelola Keuangan Mahasiswa")
+st.write("Kelola pemasukan & pengeluaran menggunakan CSV/Excel sebagai database.")
+
+# -----------------------------
+# UPLOAD FILE
+# -----------------------------
+uploaded = st.file_uploader("Unggah file CSV atau Excel", type=["csv", "xlsx"])
+
+if uploaded:
+    df = load_data(uploaded)
+    if df is not None:
+
+        st.success("File berhasil dimuat!")
+
+        # -----------------------------
+        # MENU UTAMA
+        -----------------------------
+        menu = st.sidebar.radio(
+            "Menu",
+            ["📄 Lihat Data", "➕ Tambah Transaksi", "❌ Hapus Transaksi", "📈 Analisis", "💾 Download Data"]
+        )
+
+        # --------------------------------------
+        # 1. LIHAT DATA
+        # --------------------------------------
+        if menu == "📄 Lihat Data":
+            st.subheader("📄 Tabel Transaksi")
+            st.dataframe(df)
+
+        # --------------------------------------
+        # 2. TAMBAH TRANSAKSI
+        # --------------------------------------
+        elif menu == "➕ Tambah Transaksi":
+            st.subheader("➕ Tambah Transaksi Baru")
+
+            tanggal = st.date_input("Tanggal")
+            kategori = st.text_input("Kategori (makan, kos, transport, dsb)")
+            jenis = st.selectbox("Jenis Transaksi", ["Pengeluaran", "Pemasukan"])
+            jumlah = st.number_input("Jumlah (Rp)", min_value=0)
+
+            if st.button("Tambah"):
+                df = add_transaction(df, tanggal, kategori, jenis, jumlah)
+                st.success("Transaksi berhasil ditambahkan!")
+
+                # Simpan otomatis ke session state
+                st.session_state["df"] = df
+
+        # --------------------------------------
+        # 3. HAPUS TRANSAKSI
+        # --------------------------------------
+        elif menu == "❌ Hapus Transaksi":
+            st.subheader("❌ Hapus Transaksi")
+
+            st.write("Pilih nomor baris yang ingin dihapus:")
+
+            st.dataframe(df)
+
+            idx = st.number_input("Nomor indeks baris", min_value=0, max_value=len(df)-1)
+
+            if st.button("Hapus"):
+                df = delete_transaction(df, idx)
+                st.session_state["df"] = df
+                st.success(f"Baris {idx} berhasil dihapus!")
+
+        # --------------------------------------
+        # 4. ANALISIS
+        # --------------------------------------
+        elif menu == "📈 Analisis":
+            st.subheader("📈 Analisis Keuangan")
+
+            pengeluaran = df[df["Jenis"] == "Pengeluaran"]["Jumlah"].sum()
+            pemasukan = df[df["Jenis"] == "Pemasukan"]["Jumlah"].sum()
+            selisih = pemasukan - pengeluaran
+
+            rata_harian = df[df["Jenis"] == "Pengeluaran"]["Jumlah"].mean()
+            rata_bulanan = df.groupby(df["Tanggal"].dt.to_period("M"))["Jumlah"].sum().mean()
+
+            st.markdown("### 🔎 Ringkasan")
+            st.write(f"**Total Pengeluaran:** Rp{pengeluaran:,.0f}")
+            st.write(f"**Total Pemasukan:** Rp{pemasukan:,.0f}")
+            st.write(f"**Selisih:** Rp{selisih:,.0f}")
+            st.write(f"**Rata-rata Pengeluaran Harian:** Rp{rata_harian:,.0f}")
+            st.write(f"**Rata-rata Pengeluaran Bulanan:** Rp{rata_bulanan:,.0f}")
+
+            st.markdown("---")
+
+            # ------- Distribusi kategori -------
+            st.markdown("### 📌 Distribusi Pengeluaran per Kategori")
+            cat = df[df["Jenis"] == "Pengeluaran"].groupby("Kategori")["Jumlah"].sum()
+
+            fig1, ax1 = plt.subplots()
+            ax1.pie(cat, labels=cat.index, autopct="%1.1f%%")
+            plt.title("Distribusi Kategori")
+            st.pyplot(fig1)
+
+            # ------- Grafik Tren -------
+            st.markdown("### 📈 Tren Pengeluaran per Hari")
+            daily = df[df["Jenis"] == "Pengeluaran"].groupby("Tanggal")["Jumlah"].sum()
+
+            fig2, ax2 = plt.subplots()
+            ax2.plot(daily.index, daily.values)
+            ax2.set_title("Tren Pengeluaran")
+            ax2.set_xlabel("Tanggal")
+            ax2.set_ylabel("Jumlah (Rp)")
+            st.pyplot(fig2)
+
+        # --------------------------------------
+        # 5. DOWNLOAD DATA
+        # --------------------------------------
+        elif menu == "💾 Download Data":
+            st.subheader("💾 Download Data Terkini")
+
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("Download CSV", csv, "updated_transactions.csv")
 
 else:
-    st.info("Silakan upload file CSV/Excel untuk mulai analisis.")
+    st.info("Unggah file CSV atau Excel untuk mulai menggunakan aplikasi.")
