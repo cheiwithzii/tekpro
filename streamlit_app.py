@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-
-import uuid  # jika belum diimport
+import uuid
 
 # -----------------------------
 # Session unik per user
@@ -12,29 +11,6 @@ if "user_id" not in st.session_state:
 
 # Optional: tampilkan session di dashboard
 st.write(f"Session User ID: {st.session_state.user_id}")
-
-import streamlit as st
-
-# Background gambar
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80");
-        background-size: cover;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-        background-position: center;
-        background-color: #ffc0cb;  /* fallback pink pastel */
-        height: 100vh;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.title("Test Background")
-st.write("Jika ini muncul, background juga harus terlihat.")
 
 # ============================
 # 1. Konfigurasi & Fungsi Utils
@@ -353,3 +329,21 @@ st.markdown("""
 
 </style>
 """, unsafe_allow_html=True)
+    <style>
+    .stApp {
+        background-image: url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80");
+        background-size: cover;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: #ffc0cb;  /* fallback pink pastel */
+        height: 100vh;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("Test Background")
+st.write("Jika ini muncul, background juga harus terlihat.")
+
