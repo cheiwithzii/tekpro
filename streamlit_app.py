@@ -112,16 +112,32 @@ elif menu == "Ringkasan":
 # Menu 4: Grafik
 # ============================
 elif menu == "Grafik":
-    st.subheader("📈 Grafik keuangan Anda")
+    st.subheader("📈 Grafik Keuangan Anda")
     df = load_transactions()
 
     if df.empty:
         st.warning("Belum ada data untuk divisualisasikan.")
     else:
-        st.line_chart(df.groupby("Tanggal")["Jumlah"].sum())
+        # Pastikan tanggal urut
+        df = df.sort_values("Tanggal")
 
+        # Filter: ambil bulan terbanyak (misal user mengisi Januari saja)
+        df["Bulan"] = df["Tanggal"].dt.to_period("M")
+        bulan_terbanyak = df["Bulan"].mode()[0]
+        df = df[df["Bulan"] == bulan_terbanyak]
+
+        st.info(f"Menampilkan grafik untuk bulan: **{bulan_terbanyak}**")
+
+        # Grafik garis jumlah per hari
+        daily = df.groupby("Tanggal")["Jumlah"].sum()
+
+        st.line_chart(daily)
+
+        # Grafik batang per kategori (hanya pengeluaran)
         expense_only = df[df["Type"] == "Pengeluaran"]
-        st.bar_chart(expense_only.groupby("Kategori")["Jumlah"].sum().abs())
+        category_sum = expense_only.groupby("Kategori")["Jumlah"].sum().abs()
+
+        st.bar_chart(category_sum)
 
 # ============================
 # Menu 5: Upload CSV
