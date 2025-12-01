@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
-import uuid
+
+# PENTING: CSV_FILE harus didefinisikan di sini, sebelum fungsi apa pun memakainya
+CSV_FILE = "transactions.csv"
 
 def load_transactions():
     if os.path.exists(CSV_FILE):
@@ -10,7 +12,7 @@ def load_transactions():
         df['Tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
         return df
     else:
-        # Data kosong per user
+        # Data kosong per user (satu file global)
         return pd.DataFrame(columns=['Tanggal','Deskripsi','Jumlah','Kategori','Type'])
 
 def save_transactions(df):
@@ -110,13 +112,11 @@ elif menu == "Grafik":
 
         # Grafik garis jumlah per hari
         daily = df.groupby("Tanggal")["Jumlah"].sum()
-
         st.line_chart(daily)
 
         # Grafik batang per kategori (hanya pengeluaran)
         expense_only = df[df["Type"] == "Pengeluaran"]
         category_sum = expense_only.groupby("Kategori")["Jumlah"].sum().abs()
-
         st.bar_chart(category_sum)
 
 elif menu == "Upload CSV":
@@ -181,7 +181,7 @@ elif menu == "Upload CSV":
                 .str.replace(",", "")
                 .str.replace(" ", "")
             )
-            new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors="coerce")
+            new_df["Jumlah"] = pd.to_numeric(new_df["Jumlah"], errors='coerce')
 
             # Hapus baris yang gagal diparse
             new_df = new_df.dropna(subset=["Tanggal", "Jumlah"])
@@ -249,48 +249,38 @@ elif menu == "Perbaikan Data":
             save_transactions(pd.DataFrame(columns=["Tanggal", "Deskripsi", "Jumlah", "Kategori", "Type"]))
             st.error("Semua data telah dihapus!")
 
-import streamlit as st
-
+# Styling (tetap satu kali import streamlit)
 st.markdown("""
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Sacramento&family=Playfair+Display:wght@400&family=Roboto:wght@400&family=Lato:wght@400&display=swap" rel="stylesheet">
 
 <style>
-/* ====== Background Pink Pastel ====== */
 [data-testid="stAppViewContainer"] {
     background: linear-gradient(180deg, #ffe6ee 0%, #fff6fa 60%, #ffffff 100%);
 }
 
-/* ====== Font Per Elemen ====== */
-
-/* Judul Utama */
 .stApp h1 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 700;
 }
 
-/* Header */
 .stApp h2 {
     font-family: 'Sacramento', cursive;
 }
 
-/* Subheader */
 .stApp h3 {
     font-family: 'Playfair Display', serif;
 }
 
-/* Body Text */
 .stApp p {
     font-family: 'Roboto', sans-serif;
 }
 
-/* Sidebar font */
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] p {
     font-family: 'Lato', sans-serif;
 }
 
-/* Buttons font */
 .stButton > button {
     font-family: 'Lato', sans-serif;
     background-color: #ffb6c9 !important;
@@ -299,12 +289,10 @@ st.markdown("""
     border: none;
 }
 
-/* Hover Buttons */
 .stButton > button:hover {
     background-color: #ff9db8 !important;
 }
 
-/* Input / textarea font */
 .stTextInput input,
 [data-baseweb="textarea"] > textarea {
     font-family: 'Roboto', sans-serif;
