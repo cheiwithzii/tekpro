@@ -3,14 +3,6 @@ import pandas as pd
 import os
 import uuid
 
-if "user_id" not in st.session_state:
-    st.session_state.user_id = str(uuid.uuid4())
-
-# Optional: tampilkan session di dashboard
-st.write(f"Session User ID: {st.session_state.user_id}")
-
-CSV_FILE = f"transactions_{st.session_state.user_id}.csv"
-
 def load_transactions():
     if os.path.exists(CSV_FILE):
         df = pd.read_csv(CSV_FILE, parse_dates=['Tanggal'])
